@@ -5,9 +5,9 @@ export const PROFILE = Object.freeze({
   from: '3.0.0', to: '3.0.1', build: '24342',
   serializationBuilds: [7000, 7003],
   gameIdentifier: 0x57335850, gameVersion: 10200,
-  verification: 'Player confirmed main-save loading, travel between all three maps, and saving again in Undercity.',
+  verification: 'Player confirmed loading and travel between the supported areas, saving again in Undercity, and a successful checksum-only beforebaron playtest.',
   maps: [
-    {id: 'undeadre01', name: 'Undercity', old: 'd14c260a', current: '3c2f7a2e'},
+    {id: 'undeadre01', name: 'Undercity / Trade Quarter', old: 'd14c260a', current: '3c2f7a2e'},
     {id: 'undeadre01_02', name: 'Capital City Ruins', old: '5035caa4', current: '9ef8ba27'},
     {id: 'undeadre01_03', name: 'Tirisfal Glades', old: 'aa301d70', current: '990b99db'}
   ]

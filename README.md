@@ -1,7 +1,7 @@
 # Forsaken Save Repair
 
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
-the three verified Act One maps, patch 3.0.0 → 3.0.1 (build 24342)**. Select the complete campaign
+the supported Act One locations, patch 3.0.0 → 3.0.1 (build 24342)**. Select the complete campaign
 folder, pick one checkpoint, and download its repaired bundle. Folder selection
 is the only input workflow; repaired bundles download as ZIP files.
 
@@ -13,7 +13,8 @@ this repository and its Actions artifacts.
 ## Supported repair
 
 The initial profile contains exact, verified old/current checksum pairs for
-Undercity, Capital City Ruins, and Tirisfal Glades. It updates the encoded
+Undercity (including Trade Quarter), Capital City Ruins, and Tirisfal Glades.
+Trade Quarter uses the same map identity as Undercity. It updates the encoded
 settings identity and the plain map-checksum field, retains the original save
 build and gameplay payload, recompresses only the first block for the identity
 repair, and rebuilds the container integrity checksums.
@@ -25,7 +26,9 @@ checks but the player reported a loading crash for `beforebaron_repaired`.
 Folder migration is disabled; its engine compatibility remains unresolved.
 
 Main-save loading, travel between all three maps, and saving again in Undercity
-were confirmed by a player. This is one recovered playthrough, not proof that
+were confirmed by a player, including travel to Trade Quarter. The player also
+reported a successful `beforebaron` playtest after reverting to checksum-only
+browser exports. These are recovered playthroughs, not proof that
 every campaign script is compatible. Other Act One areas also need separately
 verified donors before they can be added. The tool does **not** port saved quest or
 item-drop scripts. Unknown checksums for a supported map block export rather
