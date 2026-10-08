@@ -129,6 +129,15 @@ Act One areas and Acts Two and Three are pending. The display label for an
 unsupported map never enables a repair; only verified old/current pairs in
 `src/profiles.mjs` do. Unsupported companions remain byte-identical.
 
+`src/map-catalog.mjs` inventories the 20 installed campaign maps in build
+3.0.1.24342: 15 Forsaken Kingdom maps and five maps for the separate prologue,
+The Last Days of Lordaeron. Campaign/chapter titles come from campaign UI
+metadata and English strings. Location labels come from loading-screen
+filenames, with the naming source recorded for each entry and in reports.
+This catalog supplies names only; it contains no checksum pairs and never
+enables a repair. Lookup uses the complete campaign path to avoid matching
+an identically named file in another campaign.
+
 The Warcraft-inspired theme uses original SVG stone texture, a citadel
 silhouette, and a bronze crest; it includes no extracted game artwork.
 

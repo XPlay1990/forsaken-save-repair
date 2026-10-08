@@ -1,4 +1,5 @@
 /** Registry is deliberately limited to exact map/revision pairs verified locally. */
+import {knownMap} from './map-catalog.mjs';
 export const PROFILE = Object.freeze({
   id: 'forsaken-act1-300-to-301',
   name: 'Forsaken Kingdom · Act One',
@@ -18,5 +19,5 @@ export function mapProfile(path) {
 }
 // A display label supplies no checksum pair and cannot enable conversion.
 export function unsupportedMapName(path){
-  return path.toLowerCase().replaceAll('\\','/')==='campaign/forsakenkingdom/undeadre01_05.w3xd'?'Arcane Sanctuary':undefined;
+  return knownMap(path)?.name;
 }

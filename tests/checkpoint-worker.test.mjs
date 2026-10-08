@@ -37,7 +37,8 @@ test('checkpoint export retains original companion paths and changes only the ve
     assert.equal(unsupported.build,7003);assert.equal(unsupported.gameIdentifier,PROFILE.gameIdentifier);assert.equal(unsupported.gameVersion,PROFILE.gameVersion);
     assert.deepEqual(report.unchangedUnsupported,[unsupported]);
     assert.deepEqual(report.missingCompanions,{folders:[],files:['Blizzard/beforebaron/UndeadRE01_02.w3z']});
-    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','inputChecksum','outputChecksum','targetChecksum','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
+    assert.equal(unsupported.mapNameSource,'loading-screen-filename');
+    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
     const old=inspectSave(original),fixed=inspectSave(output['beforebaron_repaired_2.w3z']);
     assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(fixed.firstEnd),original.subarray(old.firstEnd));
     assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(40,64),original.subarray(40,64));

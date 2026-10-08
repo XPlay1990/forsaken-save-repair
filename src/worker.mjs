@@ -10,14 +10,14 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
-  return {path,size,map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion};
+  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
+  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion};
 }
 function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
   const stats=summary(analysis);
   const saves=analysis.map(row=>({file:row.path,outputFile:exported?paths.get(row.path):null,
-    mapPath:row.map??null,mapId:row.mapId??null,mapName:row.mapName??null,
+    mapPath:row.map??null,mapId:row.mapId??null,mapName:row.mapName??null,mapNameSource:row.mapNameSource??null,
     inputChecksum:row.checksum??null,outputChecksum:exported?(row.status==='repair'?row.targetChecksum:row.checksum)??null:null,
     targetChecksum:row.targetChecksum??null,build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
     status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null}));
