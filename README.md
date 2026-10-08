@@ -1,5 +1,9 @@
 # Forsaken Save Repair
 
+**Public beta · v0.1.0-beta.1.** Checksum conversion covers all installed maps;
+gameplay verification remains limited to the Act One locations listed below.
+See [release notes](CHANGELOG.md).
+
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
 all acts and the separate prologue, targeting patch 3.0.1 (build 24342)**. Use
 pre-update saves. Select the complete campaign
