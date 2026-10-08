@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="description" content="Choose your Forsaken Kingdom folder, pick a save, and download its repaired checkpoint and companions. All processing stays in your browser.">
-  <meta name="theme-color" content="#101714"><title>Forsaken Save Repair</title>
+  <meta name="theme-color" content="#101714"><title>Warcraft III · Forsaken Save Repair</title>
   <link rel="icon" href="./mark.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"><script type="module" src="./app.mjs"></script>
 </head>
 <body>
   <div class="page-grain" aria-hidden="true"></div>
-  <header class="masthead"><a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a><div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div></header>
+  <header class="masthead"><a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span><span class="brand-game">WARCRAFT III</span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a><div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div></header>
   <main>
     <section class="intro" aria-labelledby="title"><p class="eyebrow">FORSAKEN KINGDOM · ALL ACTS · REPAIR FOR 3.0.1</p><h1 id="title">Reclaim your progress.</h1><p>Choose your folder. Pick a save. Get back to playing.</p></section>
     <section class="workspace" aria-label="Repair a checkpoint">
@@ -42,11 +42,11 @@
       <div class="panel-heading"><h2 id="limitations-title"><span aria-hidden="true">⚠</span> Current limitations</h2></div>
       <dl class="limitations-list">
         <div><dt>Map coverage</dt><dd>Checksum repair covers all maps in Acts One–Three and the prologue.</dd></div>
-        <div><dt>Game testing</dt><dd>Loading and travel verified in Undercity / Trade Quarter, Tirisfal Glades and Capital City Ruins. One Scarlet Monastery checkpoint passed loading, saving and reloading; later checkpoints crashed during loading. Other areas still need testing.</dd></div>
+        <div><dt>Game testing</dt><dd>Loading and travel verified in Undercity / Trade Quarter, Tirisfal Glades and Capital City Ruins. Scarlet Monastery checkpoints (1)–(6) loaded, with the Deathseeker projectile fix applied to (2)–(5). Checkpoint (4) also saved and reloaded. Other areas still need testing.</dd></div>
       </dl>
-      <p class="limitations-scope">Use saves from before patch 3.0.1. Output targets 3.0.1.24342; later patches are unsupported. Checksum repair does not migrate saved scripts, quests, inventory or animation state. Some checkpoints may still crash or malfunction. Damaged saves and unrecognized formats cannot be converted.</p>
+      <p class="limitations-scope">Use saves from before patch 3.0.1. Output targets 3.0.1.24342; later patches are unsupported. Includes a targeted Deathseeker projectile fix for known old Scarlet Monastery saves, including earlier checksum-only repairs. Saved scripts, quests and inventory stay unchanged. Other incompatible states may still crash or malfunction. Damaged saves and unrecognized formats cannot be converted.</p>
     </section>
   </main>
-  <footer><span>Unofficial community recovery tool.</span><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>
+  <footer><span>Unofficial community recovery tool.</span><div class="contact">Need help? Discord: <strong>_xplay</strong> · <a href="https://discord.gg/MZ63U7E4z" target="_blank" rel="noopener noreferrer">Join the server ↗</a></div><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>
 </body>
 </html>

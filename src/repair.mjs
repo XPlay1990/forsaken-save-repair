@@ -2,6 +2,7 @@ import {Inflate, Deflate, constants} from './vendor/pako.mjs';
 import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
 import {knownMap} from './map-catalog.mjs';
 import {targetMapChecksum} from './map-checksums.mjs';
+import {projectilePlan,applyProjectilePlan} from './projectiles.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
 const BLOCK_SIZE=1048576;
@@ -85,7 +86,8 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const count=u32(data,44);const payloadSize=u32(data,40);
   check(count>0&&count<=2048,'The block count is outside the supported range.');
   check(payloadSize>(count-1)*BLOCK_SIZE&&payloadSize<=count*BLOCK_SIZE,'The save payload size is inconsistent.');
-  let pos=68;let first;let firstEnd;let info;let supported;
+  const build=u16(data,56),expandedBlocks=[];
+  let pos=68;let first;let firstEnd;let info;let supported;let collectProjectiles=false;
   for(let index=0;index<count;index++){
     check(pos+12<=data.length,'A save block header is truncated.');
     const compressed=u32(data,pos);const expanded=u32(data,pos+4);const checksum=u32(data,pos+8);
@@ -95,12 +97,13 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
     check(blockCRC(comp,expanded)===checksum,`Block ${index+1} has an invalid checksum.`);
     if(index===0){
       first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map);firstEnd=pos+12+compressed;
+      collectProjectiles=supported?.id==='undeadre02_06'&&build===7000;
+      if(collectProjectiles)expandedBlocks.push(first);
       onExpandedBlock(first,index);
-    }else if(supported){onExpandedBlock(inflateBlock(comp,expanded),index);}
+    }else if(supported){const raw=inflateBlock(comp,expanded);if(collectProjectiles)expandedBlocks.push(raw);onExpandedBlock(raw,index);}
     pos+=12+compressed;onBlock(index+1,count);
   }
   check(pos===data.length,'The save contains unexpected trailing data.');
-  const build=u16(data,56);
   const details={map:info.map,mapId:supported?.id||info.map.split(/[\\/]/).at(-1).replace(/\.w3xd$/i,'').toLowerCase(),
     mapName:supported?.name||unsupportedMapName(info.map)||info.map.split(/[\\/]/).at(-1),
     mapNameSource:supported?'repair-profile':knownMap(info.map)?.nameSource||'map-filename',
@@ -108,16 +111,18 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
     sourceRevisionKnown:supported?info.checksum===supported.old||info.checksum===supported.current:null,
     mapGameTested:supported?.gameTested??null,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
-  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';
+  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null;
   try{
     if(supported){
       check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
       check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
+      if(collectProjectiles){nativePayload=join(expandedBlocks);nativePlan=projectilePlan(nativePayload,{...details,payloadSize});}
       if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
       else {status='repair';reason='Map checksum differs from 3.0.1; ready for checksum repair.';}
+      if(nativePlan){status='repair';reason=`Ready to repair ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
     }
   }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
-  return {...details,status,reason,first,firstEnd,info};
+  return {...details,status,reason,first,firstEnd,info,projectileRepairCount:nativePlan?.records||0,nativePlan,nativePayload};
 }
 
 export function repairSave(input){
@@ -132,6 +137,25 @@ export function repairSave(input){
   const allowed=new Set();for(let i=info.plainOffset;i<info.plainOffset+4;i++)allowed.add(i);
   for(let i=9;i<13;i++){allowed.add(info.settingsStart+8*Math.floor(i/7));allowed.add(info.settingsStart+8*Math.floor(i/7)+1+i%7);}
   const changedOffsets=[];for(let i=0;i<raw.length;i++)if(old[i]!==raw[i]){check(allowed.has(i),'A gameplay byte would change; repair stopped.');changedOffsets.push(i);}
+  if(inspection.nativePlan){
+    const originalPayload=inspection.nativePayload;
+    const converted=applyProjectilePlan(originalPayload,inspection.nativePlan,u32(data,40));
+    for(const offset of changedOffsets)converted.raw[offset]=raw[offset];
+    const parts=[];let pos=68;
+    for(let index=0;index<converted.raw.length/BLOCK_SIZE;index++){
+      const chunk=converted.raw.subarray(index*BLOCK_SIZE,(index+1)*BLOCK_SIZE);
+      const unchanged=equal(chunk,originalPayload.subarray(index*BLOCK_SIZE,(index+1)*BLOCK_SIZE));
+      if(unchanged&&index<u32(data,44)){const length=u32(data,pos);parts.push(data.subarray(pos,pos+12+length));}
+      else {const compressed=compressBlock(chunk);check(equal(inflateBlock(compressed,BLOCK_SIZE),chunk),'Converted state block failed round-trip.');const header=new Uint8Array(12);put32(header,0,compressed.length);put32(header,4,BLOCK_SIZE);put32(header,8,blockCRC(compressed,BLOCK_SIZE));parts.push(header,compressed);}
+      if(index<u32(data,44))pos+=12+u32(data,pos);
+    }
+    const body=join(parts),header=data.slice(0,68);put32(header,32,68+body.length);put32(header,40,converted.payloadSize);put32(header,44,converted.raw.length/BLOCK_SIZE);put32(header,64,headerCRC(header));
+    const repaired=join([header,body]);
+    const verified=inspectSave(repaired);
+    check(verified.status==='current'&&verified.projectileRepairCount===0&&verified.checksum===inspection.targetChecksum,'Converted output verification failed.');
+    check(equal(repaired.subarray(48,64),data.subarray(48,64)),'Save build or duration changed.');
+    return {data:repaired,inspection,changedOffsets,projectileRepairs:inspection.projectileRepairCount};
+  }
   const comp=compressBlock(raw);check(equal(inflateBlock(comp,raw.length),raw),'Recompressed identity block did not round-trip.');
   check(identity(raw).checksum===inspection.targetChecksum,'Output map identity verification failed.');
   const blockHeader=new Uint8Array(12);put32(blockHeader,0,comp.length);put32(blockHeader,4,raw.length);put32(blockHeader,8,blockCRC(comp,raw.length));

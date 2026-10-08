@@ -1,11 +1,14 @@
 /** Local-only full browser check. Private save fixtures are never part of dist. */
 import {chromium} from 'playwright';
-import {readFile,mkdir} from 'node:fs/promises';
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
 import {inspectSave,repairSave} from '../dist/repair.mjs';
+import {fixture} from '../tests/save-fixture.mjs';
+import {PROFILE} from '../dist/profiles.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(root,'.local-tests');await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',headless:true});
@@ -16,6 +19,10 @@ page.on('pageerror',error=>errors.push(error.message));
 page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
 try{
   await page.goto('http://127.0.0.1:4173/');
+  assert.doesNotMatch(await page.locator('body').textContent(),/\ufffd/,'Visible text contains invalid UTF-8 replacement characters');
+  assert.match(await page.locator('.identity').textContent(),/WARCRAFT III/);
+  assert.match(await page.locator('footer').textContent(),/_xplay/);
+  assert.equal(await page.locator('footer a[href="https://discord.gg/MZ63U7E4z"]').count(),1);
   assert.equal(await page.locator('#roadmap, .map-panel, .map-ledger, #zip-input, #zip-button, .zip-option').count(),0);
   assert.equal(await page.locator('#bundle-location').isVisible(),true);
   assert.match(await page.locator('#bundle-location').textContent(),/Documents\\Warcraft III\\BattleNet\\<account-number>\\Campaigns\\ForsakenKingdom/);
@@ -129,6 +136,33 @@ try{
       assert.equal(outputRow.outputChecksum,'e18988c1');
     }
     console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; existing names, search and offline download passed.`);
+  }
+  if(process.env.SCARLET_FIXTURE_DIR){
+    const folder=path.join(output,'scarlet-input','ForsakenKingdom'),stored='FKManualSaves/Act Two - The Scarlet Monastery (4)',main='renamed (4).w3z';
+    const input=new Uint8Array(await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'Act Two - The Scarlet Monastery (4).w3z')));
+    const expected=await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'scarlet_4_missile_layout_test.w3z'));
+    const companion=fixture(PROFILE.maps.find(map=>map.id==='undeadre02'), 'e18988c1',7003).data;
+    await mkdir(path.join(folder,stored),{recursive:true});await mkdir(path.join(folder,'Blizzard','renamed (4)'),{recursive:true});
+    await writeFile(path.join(folder,main),input);await writeFile(path.join(folder,stored,'UndeadRE02.w3z'),companion);
+    await writeFile(path.join(folder,'Blizzard','renamed (4)','UndeadRE02.w3z'),companion);
+    await page.locator('#clear').click().catch(()=>{});
+    await page.locator('#folder-input').setInputFiles(folder);
+    await page.locator('.checkpoint-choice').filter({hasText:'renamed (4)'}).click();
+    await page.locator('#results').waitFor({state:'visible',timeout:120000});
+    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+    assert.equal(await page.locator('#missing-ack').isVisible(),false);
+    assert.match(await page.locator('#stats').textContent(),/1 checkpoint \+ 1 companion/);
+    assert.match(await page.locator('#file-list').textContent(),/2 Deathseeker projectile records/);
+    const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
+    const file=await download,zipPath=path.join(output,'scarlet-site-export.zip');await file.saveAs(zipPath);
+    const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
+    assert.deepEqual(Object.keys(zip).sort(),[main,stored+'/UndeadRE02.w3z','forsaken-repair-report.json'].sort());
+    const hash=data=>createHash('sha256').update(data).digest('hex');assert.equal(hash(zip[main]),hash(expected));
+    assert.equal(hash(zip[stored+'/UndeadRE02.w3z']),hash(companion));
+    const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
+    assert.equal(report.repairMode,'identity-and-deathseeker-projectiles');assert.equal(report.changed[0].projectileRepairs,2);
+    await page.screenshot({path:path.join(output,'scarlet-export.png'),fullPage:true});
+    console.log('Real Scarlet (4) browser download exactly matches game-tested recovery; FKManualSaves selected over filename match; names/report/privacy checked.');
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

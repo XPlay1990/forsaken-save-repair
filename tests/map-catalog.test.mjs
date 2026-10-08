@@ -30,10 +30,10 @@ test('all installed maps are eligible for checksum repair with explicit game-tes
   }
 });
 
-test('archive-derived targets cover installed maps and agree with all six donor controls',()=>{
+test('archive-derived targets cover installed maps and agree with all seven donor controls',()=>{
   assert.equal(TARGET_BUILD,'3.0.1.24342');assert.equal(MAP_CHECKSUMS.length,20);
   assert.deepEqual(MAP_CHECKSUMS.map(map=>map.id),MAP_CATALOG.map(map=>map.id));
-  const donors={undeadre01:'3c2f7a2e',undeadre01_02:'9ef8ba27',undeadre01_03:'990b99db',undeadre01_05:'e3d412fe',undeadre01_06:'eb044a18',undeadre02:'e18988c1'};
+  const donors={undeadre01:'3c2f7a2e',undeadre01_02:'9ef8ba27',undeadre01_03:'990b99db',undeadre01_05:'e3d412fe',undeadre01_06:'eb044a18',undeadre02:'e18988c1',undeadre02_06:'3cb04734'};
   for(const [id,current] of Object.entries(donors))assert.equal(targetMapChecksum(`Campaign\\ForsakenKingdom\\${id}.w3xd`).current,current,id);
   for(const map of PROFILE.maps)assert.equal(targetMapChecksum(`campaign/forsakenkingdom/${map.id}.w3xd`).current,map.current);
   assert.equal(targetMapChecksum('Campaign/Other/undeadre01.w3xd'),undefined);

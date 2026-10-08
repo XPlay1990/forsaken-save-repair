@@ -1,5 +1,17 @@
 # Release notes
 
+## v0.1.0-beta.3
+
+- Repair the known Deathseeker projectile-state incompatibility in old Scarlet
+  Monastery saves, including earlier checksum-only outputs. Checkpoints (2)–(5)
+  loaded; (4) also passed native resaving and reloading. Quests and inventory stay intact.
+- Prefer the saved companion directory over filename matching. Support
+  `FKManualSaves`, numbered checkpoint folders and safe stored file paths; keep
+  unrelated checkpoints and working Zones excluded.
+- Add Warcraft III branding and Discord contact `_xplay` / community server.
+- Reports identify projectile repairs. Unknown native layouts stop conversion;
+  repeated conversion leaves already repaired saves unchanged.
+
 ## v0.1.0-beta.2
 
 - Fix a false missing-companion warning for standalone saves. A missing

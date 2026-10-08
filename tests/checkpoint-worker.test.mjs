@@ -4,6 +4,35 @@ import {fixture} from './save-fixture.mjs';
 import {unzipSync} from 'fflate';
 import {repairSave,inspectSave} from '../dist/repair.mjs';
 import {PROFILE} from '../dist/profiles.mjs';
+import {nativeFixture} from './native-fixture.mjs';
+
+test('worker exports projectile-only recovery and the saved FKManualSaves directory under unchanged names',async()=>{
+  const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
+  try{
+    await import('../dist/worker.mjs?native-projectiles-and-path');
+    const name='Scarlet (4)_repaired.w3z',path='ForsakenKingdom/'+name,folder='FKManualSaves/Original (4)',snapshot=folder+'/UndeadRE02.w3z';
+    const map=PROFILE.maps.find(map=>map.id==='undeadre02_06');
+    const original=nativeFixture({checksum:map.current,companionPath:folder.replaceAll('/','\\')});
+    const companion=fixture(PROFILE.maps.find(map=>map.id==='undeadre02'),'35f0eca7').data;
+    const make=(path,data)=>{const file=new File([data],path.split('/').at(-1));Object.defineProperty(file,'webkitRelativePath',{value:path});return file;};
+    await self.onmessage({data:{type:'listFolder',files:[make(path,original),make('ForsakenKingdom/'+snapshot,companion),make('ForsakenKingdom/Blizzard/Scarlet (4)_repaired/UndeadRE02.w3z',companion)]}});
+    await self.onmessage({data:{type:'checkpoint',path}});
+    assert.equal(messages.at(-1).type,'analyzed',messages.at(-1).message);
+    assert.equal(messages.at(-1).selection.companionFolder,'ForsakenKingdom/'+folder);
+    assert.equal(messages.at(-1).rows[0].projectileRepairCount,1);
+    await self.onmessage({data:{type:'report'}});
+    const analysis=JSON.parse(await messages.at(-1).blob.text());assert.equal(analysis.repairMode,'identity-and-deathseeker-projectiles');
+    await self.onmessage({data:{type:'export'}});
+    assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
+    const zip=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
+    assert.deepEqual(Object.keys(zip).sort(),[name,snapshot,'forsaken-repair-report.json'].sort());
+    assert.deepEqual(zip[name],repairSave(original).data);assert.deepEqual(zip[snapshot],repairSave(companion).data);
+    const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
+    assert.equal(report.saves[0].inputChecksum,map.current);assert.equal(report.saves[0].outputChecksum,map.current);
+    assert.equal(report.changed[0].projectileRepairs,1);assert.equal(report.filenamesPreserved,true);
+    assert.equal(JSON.stringify(report).includes('nativePayload'),false);
+  }finally{delete globalThis.self;}
+});
 
 test('checkpoint export repairs an additional Act One companion while preserving paths and unsupported content',async()=>{
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
@@ -43,7 +72,7 @@ test('checkpoint export repairs an additional Act One companion while preserving
     assert.equal(unsupported.mapNameSource,'map-filename');
     const repairedArcane=report.saves.find(row=>row.mapId==='undeadre01_05');
     assert.equal(repairedArcane.outputChecksum,'e3d412fe');assert.equal(repairedArcane.sourceRevisionKnown,false);assert.equal(repairedArcane.mapGameTested,false);
-    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
+    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks','projectileRepairCount'].sort(),'Report must contain inspection metadata only');
     assert.equal(root.outputFile,'beforebaron.w3z');
     const old=inspectSave(original),fixed=inspectSave(output['beforebaron.w3z']);
     assert.deepEqual(output['beforebaron.w3z'].subarray(fixed.firstEnd),original.subarray(old.firstEnd));
@@ -109,7 +138,7 @@ test('unsupported checkpoints can export metadata-only reports while missing com
     assert.equal(messages.at(-1).type,'reported');assert.equal(messages.at(-1).blob.type,'application/json');
     const report=JSON.parse(await messages.at(-1).blob.text());
     assert.equal(report.reportKind,'analysis');assert.deepEqual(report.changed,[]);assert.deepEqual(report.renamed,[]);
-    assert.deepEqual(report.missingCompanions,{folders:['Unknown'],files:['Blizzard/Unknown/UndeadRE01_03.w3z']});
+    assert.deepEqual(report.missingCompanions,{folders:['Blizzard/Unknown'],files:['Blizzard/Unknown/UndeadRE01_03.w3z']});
     assert.equal(report.saves[0].mapId,'undeadre99');assert.equal(report.saves[0].inputChecksum,'35f0eca7');
     assert.equal(report.saves[0].build,7003);assert.equal(report.saves[0].status,'unsupported');
     assert.equal(report.saves[0].outputFile,null);assert.equal(report.saves[0].outputChecksum,null);

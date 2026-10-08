@@ -2,8 +2,11 @@
 
 Internal development checklist; excluded from the published website.
 
+- [x] **Stored companion paths**: use the main save’s stored directory before a filename fallback. Support FKManualSaves, CustomSaves, Blizzard and safe typed file references under other relative roots. Directory-only hints discover existing files without claiming absent snapshots. Reject conflicting directories, preserve numbered names and exclude working Zones.
+
 - [x] **Standalone checkpoint companion warning**: no longer invent a missing folder from the main filename or require acknowledgment solely because companion count is zero. Missing references are reported using saved names; numbered checkpoint names remain intact. A Scarlet Monastery checkpoint passed loading, native resaving and reloading without companions.
-- [ ] **Scarlet Monastery later checkpoints**: checkpoints `(3)` and `(4)` were reported to crash during loading. An untouched earlier `(1)` passed checksum-only recovery and native resave/reload. Independent comparison confirmed `(4)` repair preserves gameplay and uses the installed map target. No missing quest/item record has been identified; investigate checkpoint state rather than assuming companions or removing progression blindly.
+- [x] **Scarlet Monastery projectile incompatibility**: native `MUdb` projectile records from old saves had a zero buff ID and lacked a four-byte field found in current-engine donors. Targeted migration made Neo's `(4)` load and native resave/reload; the inverse edit made a working new `(4)` crash. The browser port matches private Python outputs for `(2)`–`(5)` byte for byte. Includes already checksum-repaired inputs and metadata-only repair counts; preserves saved Lua, quests, inventory, identifiers and paths.
+- [ ] **Remaining Scarlet gameplay checks**: Player confirmed targeted `(2)`, `(3)` and `(5)` load, and `(4)` native resave reloads. Check subsequent combat, quest progression and travel. Only the observed old `MUdb` layouts/revisions on `undeadre02_06` are migrated; other incompatibilities remain unsupported.
 
 - [x] **Preserve original save filenames**: automatic `_repaired` suffixes and numbered collision names removed at the user's request. Main saves, companions and saved references keep their input names. Restoring the ZIP replaces the selected checkpoint; the page instructs users to back up first. Existing older suffixed inputs are still recognized without automatic renaming.
 

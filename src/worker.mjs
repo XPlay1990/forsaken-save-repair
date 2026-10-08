@@ -9,8 +9,8 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
-  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion};
+  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount=0}=result;
+  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount};
 }
 function buildReport({exported=false,paths=new Map(),changes=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
@@ -20,9 +20,9 @@ function buildReport({exported=false,paths=new Map(),changes=[]}={}){
     inputChecksum:row.checksum??null,outputChecksum:exported?(row.status==='repair'?row.targetChecksum:row.checksum)??null:null,
     targetChecksum:row.targetChecksum??null,sourceRevisionKnown:row.sourceRevisionKnown??null,mapGameTested:row.mapGameTested??null,
     build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
-    status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null}));
+    status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null,projectileRepairCount:row.projectileRepairCount??null}));
   return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,
-    scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',repairMode:'identity-only',folderPathsPreserved:true,
+    scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',repairMode:analysis.some(row=>row.projectileRepairCount>0)?'identity-and-deathseeker-projectiles':'identity-only',folderPathsPreserved:true,
     sourcePolicy:PROFILE.sourcePolicy,mapVerification:PROFILE.verification,
     created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed:[],filenamesPreserved:true,
     unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
@@ -112,7 +112,7 @@ async function exportBundle(){
       ensure(result.inspection.checksum===row.checksum,'A save changed since inspection.');
       blob=new Blob([result.data]);
       changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
-        changedPayloadOffsets:result.changedOffsets,buildPreserved:result.inspection.build,checks:'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
+        changedPayloadOffsets:result.changedOffsets,projectileRepairs:result.projectileRepairs||0,buildPreserved:result.inspection.build,checks:result.projectileRepairs?'Passed: container checksums, targeted projectile fields and lengths, unchanged saved Lua, map identity and save build.':'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
     }
     const zipped=new ZipPassThrough(paths.get(entry.path));
     zipped.mtime=new Date('2026-10-08T00:00:00Z');zip.add(zipped);

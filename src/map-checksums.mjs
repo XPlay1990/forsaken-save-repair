@@ -1,5 +1,5 @@
 /** Target checksums derived from authenticated installed 3.0.1.24342 archives.
- * Engine XOR/rotate routine matched six fresh-save donors. profiles.mjs governs
+ * Engine XOR/rotate routine matched seven current-save donors. profiles.mjs governs
  * the accepted save formats; gameTested records actual player validation.
  * Raw checksums are four little-endian bytes rendered as hex, not numeric hex.
  */
@@ -137,9 +137,9 @@ export const MAP_CHECKSUMS = Object.freeze([
     "id": "undeadre02_06",
     "mapPath": "campaign/forsakenkingdom/undeadre02_06.w3xd",
     "current": "3cb04734",
-    "oldObserved": null,
-    "donorMatched": false,
-    "gameTested": false
+    "oldObserved": "b0669dc1",
+    "donorMatched": true,
+    "gameTested": true
   },
   {
     "id": "undeadre03a",
