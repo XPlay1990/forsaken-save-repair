@@ -5,3 +5,4 @@ dist/
 *.w3v
 *.w3p
 *.zip
+.idea/

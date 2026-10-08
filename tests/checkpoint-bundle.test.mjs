@@ -29,7 +29,7 @@ test('selected bundle export respects filename collisions with unselected checkp
   const source=[{path:'save.w3z'},{path:'Blizzard/save/UndeadRE01.w3z'}];
   const names=planBundleNames(source,[{path:'save.w3z',status:'repair'}],{reservedPaths:['SAVE_REPAIRED.W3Z','save_repaired_2.w3z']});
   assert.equal(names.paths.get('save.w3z'),'save_repaired_3.w3z');
-  assert.equal(names.paths.get(source[1].path),'Blizzard/save_repaired_3/UndeadRE01.w3z');
+  assert.equal(names.paths.get(source[1].path),source[1].path);
 });
 test('a matching checkpoint folder wins over saved paths naming another checkpoint',()=>{
   const index=indexFolder([fake('before_baron.w3z'),fake('Blizzard/before_baron/UndeadRE01.w3z'),fake('Blizzard/older/UndeadRE01_02.w3z')]);

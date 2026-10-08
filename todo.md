@@ -2,7 +2,7 @@
 
 Internal development checklist; excluded from the published website.
 
-- [ ] **Matching repaired-folder names**: player-test the new path migration with `after_baron`: load the repaired main save, travel to Capital City Ruins and Tirisfal Glades, return to Undercity, and save again. String lengths, container integrity and exact logical-payload preservation have passed native-zlib checks; engine behavior is pending.
+- [ ] **Matching repaired-folder names — disabled after a loading crash**: the player reported `beforebaron_repaired` crashing during loading on 3.0.1. Independent native-zlib comparison verified exactly eight intended path edits across the main and three companions, but this did not establish engine-compatible serialization. The converter now preserves all folder paths and changes only map identity. Compare an original-path checksum-only `beforebaron` bundle in game before attributing the crash to a specific serialization field. Re-enable folder migration only after explaining the engine constraints and confirming loading, travel and resaving.
 
 - [ ] **Act One — Arcane Sanctuary (`undeadre01_05`)**: find a pre-patch save and extract its old map checksum. The captured 3.0.1 checksum is `e3d412fe` (serialization build 7003). The old checksum is unknown. Verify the pair against an independent repair, then test loading, travel and saving in Warcraft III before enabling conversion.
 - [ ] **Remaining Act One areas**: identify destinations, collect old/current save pairs for each map, and verify each companion bundle in the game.

@@ -5,7 +5,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
-import {inspectSave} from '../dist/repair.mjs';
+import {inspectSave,repairSave} from '../dist/repair.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(root,'.local-tests');await mkdir(output,{recursive:true});
 const browser=await chromium.launch({executablePath:process.env.CHROME_PATH||'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',headless:true});
@@ -59,15 +59,14 @@ try{
     const mainOutput=report.renamed.find(item=>item.from===selectedPath).to;
     const mainParent=selectedPath.slice(0,selectedPath.lastIndexOf('/')+1);
     assert.equal(metadata.paths.some(path=>path.toLowerCase()===(mainParent+mainOutput).toLowerCase()),false,'Output would overwrite an existing main save');
-    assert.equal(metadata.paths.some(path=>path.toLowerCase().startsWith(report.checkpoint.outputFolder.toLowerCase()+'/')),false,'Output would overwrite an existing companion folder');
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
-    const targetFolder=mainOutput.slice(0,-4);
-    assert.equal(report.changed.length,4);assert.ok(report.changed.every(change=>change.pathRecords.length>=2&&change.buildPreserved));
+    assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,true);
+    assert.ok(report.changed.every(change=>change.changedPayloadOffsets.length<=10&&change.buildPreserved));
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
     assert.equal(snapshots.length,report.checkpoint.companionCount);
-    for(const name of snapshots)assert.ok(name.startsWith(`Blizzard/${targetFolder}/`),'Save and companion folder names do not match');
-    assert.equal(Object.keys(converted).some(name=>name.startsWith('Blizzard/after_baron/')),false);
+    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron/'),'Original companion folder must be retained');
+    for(const [name,data] of Object.entries(converted)){if(!name.endsWith('.w3z'))continue;const originalPath=name===mainOutput?'after_baron.w3z':name;const original=new Uint8Array(await readFile(path.join(campaign,originalPath)));assert.deepEqual(data,repairSave(original).data,'Export changed bytes outside the checksum-only repair');}
     assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
     await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('#save-search').fill('beforebaron');
@@ -78,6 +77,13 @@ try{
       assert.match(await page.locator('#stats').textContent(),/1 checkpoint \+ 3 companion saves/);
       const rows=await page.locator('#file-list .file-path').allTextContents();
       assert.equal(rows.length,4);assert.ok(rows.every(name=>name.endsWith('/beforebaron.w3z')||name.includes('/Blizzard/beforebaron/')));
+      const beforeDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
+      const beforeFile=await beforeDownload;await beforeFile.saveAs(path.join(output,'beforebaron-checksum-only.zip'));
+      const beforeZip=unzipSync(new Uint8Array(await readFile(path.join(output,'beforebaron-checksum-only.zip'))));
+      const beforeReport=JSON.parse(new TextDecoder().decode(beforeZip['forsaken-repair-report.json']));
+      const beforeOutput=beforeReport.renamed.find(item=>item.from.endsWith('/beforebaron.w3z')).to;
+      assert.equal(beforeReport.repairMode,'identity-only');
+      for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;const originalPath=name===beforeOutput?'beforebaron.w3z':name;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron/'));const original=new Uint8Array(await readFile(path.join(campaign,originalPath)));assert.deepEqual(data,repairSave(original).data);}
       await page.locator('#another-save').click();
     }
     await page.locator('#save-search').fill('Act Two - Undercity');

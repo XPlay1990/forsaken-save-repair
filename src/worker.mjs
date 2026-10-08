@@ -3,7 +3,6 @@ import {inspectSave,repairSave,assertUniquePaths} from './repair.mjs';
 import {PROFILE} from './profiles.mjs';
 import {planBundleNames} from './bundle-names.mjs';
 import {indexFolder,resolveCheckpointBundle,companionReferenceScanner} from './checkpoint-bundle.mjs';
-import {migrateSavePaths} from './path-migration.mjs';
 
 let entries=[];let analysis=[];let inventory=[];let selection=null;
 const MAX_BYTES=1024*1024*1024,MAX_FILES=5000,CHUNK=1024*1024;
@@ -64,8 +63,7 @@ async function analyzeEntries(cached=new Map()){
     }catch(error){analysis.push({path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
     send('row',{row:analysis.at(-1)});
   }
-  const {renamed,migration}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path),checkpointPath:selection.path,companionFolder:selection.companionFolder});
-  selection.outputFolder=migration?.to;selection.outputName=migration?.targetName;
+  const {renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
   send('analyzed',{rows:analysis,renamed,selection,summary:summary(analysis),files:entries.length,bytes:entries.reduce((sum,x)=>sum+x.blob.size,0)});
 }
 async function exportBundle(){
@@ -73,8 +71,7 @@ async function exportBundle(){
   ensure(selection&&entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
   ensure(stats.repair+stats.current>0,'No supported Act One saves were selected.');
   ensure(stats.checkpointSupported,'This main save is not supported yet. Choose an Act One checkpoint.');
-  const {paths,renamed,migration}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path),checkpointPath:selection.path,companionFolder:selection.companionFolder});
-  ensure(migration,'No matching output save and companion folder could be allocated.');
+  const {paths,renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
   {
     // Folder-picker paths include the chosen root; export its contents so the
     // user can copy the ZIP straight into the existing campaign directory.
@@ -89,14 +86,12 @@ async function exportBundle(){
     const entry=entries[i];let blob=entry.blob;
     send('progress',{message:`Preparing ${entry.path}`,value:100*i/entries.length});
     const row=analysis.find(x=>x.path===entry.path);
-    if(row){
+    if(row?.status==='repair'){
       const result=repairSave(new Uint8Array(await blob.arrayBuffer()));
       ensure(result.inspection.checksum===row.checksum,'A save changed since inspection.');
-      const migrated=migrateSavePaths(result.data,migration.targetName);blob=new Blob([migrated.data]);
-      if(entry.path===selection.path&&selection.companionFolder)ensure(migrated.recognizedRecords>0,'No supported saved folder references were found in this main save. Its companion folder cannot be renamed safely.');
-      if(row.status==='repair'||migrated.edits.length)changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.status==='repair'?row.targetChecksum:row.checksum,
-        checksumChanged:row.status==='repair',changedIdentityOffsets:result.changedOffsets,pathRecords:migrated.edits,payloadDelta:migrated.payloadDelta,buildPreserved:result.inspection.build,
-        checks:'Passed: container checksums, string lengths, compression round-trip, and exact inverse comparison of gameplay bytes. Engine loading and travel await player testing.'});
+      blob=new Blob([result.data]);
+      changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
+        changedPayloadOffsets:result.changedOffsets,buildPreserved:result.inspection.build,checks:'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
     }
     const zipped=new ZipPassThrough(paths.get(entry.path));
     zipped.mtime=new Date('2026-10-08T00:00:00Z');zip.add(zipped);
@@ -106,8 +101,8 @@ async function exportBundle(){
     }
     if(blob.size===0)zipped.push(new Uint8Array(),true);
   }
-  const metadata={profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,scope:'Act One only',
-    created:new Date().toISOString(),checkpoint:selection,changed:changes,renamed,unsupportedMapChecksums:analysis.filter(x=>x.status==='unsupported').map(x=>({file:x.path,outputFile:paths.get(x.path)})),
+  const metadata={profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,scope:'Act One only',repairMode:'identity-only',folderPathsPreserved:true,
+    created:new Date().toISOString(),checkpoint:selection,changed:changes,renamed,unchangedUnsupported:analysis.filter(x=>x.status==='unsupported').map(x=>({file:x.path,outputFile:paths.get(x.path)})),
     missingMaps:stats.missing,verification:'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.',
     privacy:'All processing happened in this browser. No files were sent to a server.'};
   let reportName='forsaken-repair-report.json';
