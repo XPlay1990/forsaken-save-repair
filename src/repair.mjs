@@ -2,7 +2,7 @@ import {Inflate, Deflate, constants} from './vendor/pako.mjs';
 import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
 import {knownMap} from './map-catalog.mjs';
 import {targetMapChecksum} from './map-checksums.mjs';
-import {projectilePlan,applyProjectilePlan} from './projectiles.mjs';
+import {projectilePlan,applyProjectilePlan,projectileScanner} from './projectiles.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
 const BLOCK_SIZE=1048576;
@@ -86,7 +86,7 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const count=u32(data,44);const payloadSize=u32(data,40);
   check(count>0&&count<=2048,'The block count is outside the supported range.');
   check(payloadSize>(count-1)*BLOCK_SIZE&&payloadSize<=count*BLOCK_SIZE,'The save payload size is inconsistent.');
-  const build=u16(data,56),expandedBlocks=[];
+  const build=u16(data,56),projectiles=projectileScanner();
   let pos=68;let first;let firstEnd;let info;let supported;let collectProjectiles=false;
   for(let index=0;index<count;index++){
     check(pos+12<=data.length,'A save block header is truncated.');
@@ -97,10 +97,10 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
     check(blockCRC(comp,expanded)===checksum,`Block ${index+1} has an invalid checksum.`);
     if(index===0){
       first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map);firstEnd=pos+12+compressed;
-      collectProjectiles=supported?.id==='undeadre02_06'&&build===7000;
-      if(collectProjectiles)expandedBlocks.push(first);
+      collectProjectiles=!!supported&&build===7000;
+      if(collectProjectiles)projectiles.scan(first);
       onExpandedBlock(first,index);
-    }else if(supported){const raw=inflateBlock(comp,expanded);if(collectProjectiles)expandedBlocks.push(raw);onExpandedBlock(raw,index);}
+    }else if(supported){const raw=inflateBlock(comp,expanded);if(collectProjectiles)projectiles.scan(raw);onExpandedBlock(raw,index);}
     pos+=12+compressed;onBlock(index+1,count);
   }
   check(pos===data.length,'The save contains unexpected trailing data.');
@@ -116,7 +116,14 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
     if(supported){
       check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
       check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
-      if(collectProjectiles){nativePayload=join(expandedBlocks);nativePlan=projectilePlan(nativePayload,{...details,payloadSize});}
+      if(collectProjectiles&&projectiles.found){
+        nativePayload=new Uint8Array(count*BLOCK_SIZE);nativePayload.set(first);
+        for(let index=1,offset=firstEnd;index<count;index++){
+          const size=u32(data,offset);nativePayload.set(inflateBlock(data.subarray(offset+12,offset+12+size),BLOCK_SIZE),index*BLOCK_SIZE);offset+=12+size;
+        }
+        nativePlan=projectilePlan(nativePayload,{...details,payloadSize});
+        if(!nativePlan)nativePayload=null;
+      }
       if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
       else {status='repair';reason='Map checksum differs from 3.0.1; ready for checksum repair.';}
       if(nativePlan){status='repair';reason=`Ready to repair ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}

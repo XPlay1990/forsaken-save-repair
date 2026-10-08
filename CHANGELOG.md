@@ -1,5 +1,17 @@
 # Release notes
 
+## v0.1.0-beta.4
+
+- Detect and migrate the verified old Deathseeker projectile layout on every
+  recognized campaign/prologue map, including companion snapshots and earlier
+  checksum-only outputs. Preserve current layouts and unrelated projectiles.
+- Validate allocation tables beyond misleading marker strings and detect type
+  identifiers across block boundaries. Reject ambiguous tables and unknown
+  Deathseeker state layouts. Saves without this type retain streaming processing.
+- Cross-map synthetic and companion-export tests passed. Real Scarlet outputs
+  still match the player-tested repairs; projectile migration on other maps has
+  not yet been tested in game.
+
 ## v0.1.0-beta.3
 
 - Repair the known Deathseeker projectile-state incompatibility in old Scarlet

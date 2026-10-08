@@ -13,7 +13,7 @@ export const PROFILE = Object.freeze({
   sourcePolicy:'Validated campaign save format; every non-target checksum is replaced with the archive-derived 3.0.1 target. Source patch cannot be inferred from the serialization build.',
   serializationBuilds: [7000, 7003],
   gameIdentifier: 0x57335850, gameVersion: 10200,
-  verification:'All 20 targets derived from authenticated 3.0.1 archives; seven matched current-save donors. Player tested loading/travel in Undercity including Trade Quarter, Capital City Ruins and Tirisfal Glades, resaving and the checksum-only beforebaron export. Scarlet Monastery checkpoints (1)-(6) loaded; targeted Deathseeker projectile migration on (2)-(5), plus (4) native resave/reload. Other areas remain untested in game.',
+  verification:'All 20 targets derived from authenticated 3.0.1 archives; seven matched current-save donors. Player tested loading/travel in Undercity including Trade Quarter, Capital City Ruins and Tirisfal Glades, resaving and the checksum-only beforebaron export. Scarlet Monastery checkpoints (1)-(6) loaded; targeted Deathseeker projectile migration on (2)-(5), plus (4) native resave/reload. The same exact projectile layouts are migrated on all recognized maps, including companions; cross-map synthetic checks passed, but projectile migration outside Scarlet remains untested in game.',
   maps:Object.freeze(targets.map(target=>Object.freeze({...target,
     name:target.id==='undeadre01'?'Undercity / Trade Quarter':knownMap(target.mapPath).name,
     old:target.oldObserved})))

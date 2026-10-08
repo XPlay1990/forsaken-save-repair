@@ -1,5 +1,6 @@
-// Narrow, donor-checked MUdb conversion. No saved code is executed or rewritten.
+// Donor-checked MUdb layouts across recognized maps. Saved code stays untouched.
 // Player validation: Scarlet (4) loads/resaves/reloads; reverse donor edit crashes.
+import {MAP_CHECKSUMS} from './map-checksums.mjs';
 const encoder=new TextEncoder();
 const ESPI=encoder.encode('espi'),TYPE=encoder.encode('lga+bdUM');
 const MODEL=encoder.encode('Abilities\\Weapons\\Arrow\\ArrowMissile.mdl\0');
@@ -13,6 +14,37 @@ function find(data,needle,start=0){
   for(let pos=data.indexOf(needle[0],start);pos>=0;pos=data.indexOf(needle[0],pos+1))if(same(data.subarray(pos,pos+needle.length),needle))return pos;
   return -1;
 }
+// A streaming preflight keeps saves without this type on the low-memory path.
+export function projectileScanner(){
+  let tail=new Uint8Array(),found=false;
+  return {scan(raw){
+    if(found)return;
+    const prefix=new Uint8Array(tail.length+Math.min(TYPE.length-1,raw.length));
+    prefix.set(tail);prefix.set(raw.subarray(0,TYPE.length-1),tail.length);
+    found=find(prefix,TYPE)>=0||find(raw,TYPE)>=0;
+    tail=raw.slice(Math.max(0,raw.length-TYPE.length+1));
+  },get found(){return found;}};
+}
+function allocationTable(raw,payloadSize){
+  let result=null;
+  for(let allocation=find(raw,ESPI);allocation>=0;allocation=find(raw,ESPI,allocation+4)){
+    if(allocation+12>payloadSize)continue;
+    const size=read(raw,allocation+4),count=read(raw,allocation+8);
+    if(!count||size!==4+count*16||allocation+8+size>payloadSize)continue;
+    let missileCount=0;
+    for(let i=0;i<count;i++)if(same(raw.subarray(allocation+12+i*16,allocation+20+i*16),TYPE))missileCount++;
+    if(!missileCount)continue;
+    check(!result,'ambiguous native allocation tables');
+    const types=new Map();
+    for(let i=0;i<count;i++){
+      const pos=allocation+12+i*16,id=key(raw.subarray(pos+8,pos+16));
+      check(!types.has(id),'duplicate native object identifier');
+      types.set(id,raw.subarray(pos,pos+8));
+    }
+    result={allocation,size,count,types,missileCount};
+  }
+  return result;
+}
 function chain(raw,start){
   const records=[];let pos=start;
   while(same(raw.subarray(pos,pos+4),ESPI)){
@@ -22,28 +54,20 @@ function chain(raw,start){
   return {records,end:pos};
 }
 
-export function projectilePlan(raw,{mapId,build,checksum,targetChecksum,payloadSize}){
-  if(mapId!=='undeadre02_06'||build!==7000)return null;
-  // A synthetic/no-object fixture is valid for identity repair; it has no MUdb.
-  const allocation=find(raw,ESPI);
-  if(allocation<0||allocation+12>payloadSize)return null;
-  const size=read(raw,allocation+4),count=read(raw,allocation+8);
-  if(!count||size!==4+count*16||allocation+8+size>payloadSize)return null;
-  const types=new Map();let missileCount=0;
-  for(let i=0;i<count;i++){
-    const pos=allocation+12+i*16,id=key(raw.subarray(pos+8,pos+16));
-    check(!types.has(id),'duplicate native object identifier');
-    const type=raw.subarray(pos,pos+8);types.set(id,type);
-    if(same(type,TYPE))missileCount++;
-  }
-  if(!missileCount)return null;
-  check(checksum==='b0669dc1'||checksum===targetChecksum,'unverified source map revision');
+export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize}){
+  const map=MAP_CHECKSUMS.find(row=>row.id===mapId);
+  if(!map||map.current!==targetChecksum||build!==7000)return null;
+  const table=allocationTable(raw,payloadSize);
+  if(!table)return null;
+  const {allocation,size,count,types,missileCount}=table;
   const firstStart=find(raw,ESPI,allocation+8+size);check(firstStart>=0,'missing allocation state');
   const first=chain(raw,firstStart),parent=first.end-4;
   check(same(raw.subarray(parent,parent+4),ESPI),'missing enclosing state record');
   const secondStart=find(raw,ESPI,first.end+4);check(secondStart>=0,'missing instance state');
   const second=chain(raw,secondStart);
   check(first.records.length===count&&second.records.length===count,'instance counts disagree');
+  check(second.end<=payloadSize&&parent+8+read(raw,parent+4)<=payloadSize,'native state leaves meaningful payload');
+  const structuralStarts=[allocation,parent,...first.records.map(row=>row.pos),...second.records.map(row=>row.pos)];
   const edits=[],recordOffsets=[];let found=0;
   for(let i=0;i<count;i++){
     const a=first.records[i],b=second.records[i],body=raw.subarray(a.pos+8,a.pos+8+a.size);
@@ -56,7 +80,7 @@ export function projectilePlan(raw,{mapId,build,checksum,targetChecksum,payloadS
     if([325,345].includes(b.size)&&read(state,104)===0x42556462&&read(state,140)===0x18006&&find(state,MODEL)===185)continue;
     check([321,341].includes(b.size)&&read(state,104)===0&&read(state,140)===0&&read(state,100)===0x18006&&find(state,MODEL)===181,'unrecognized MUdb state layout');
     const parents=[];
-    for(let p=find(raw,ESPI);p>=0&&p<b.pos;p=find(raw,ESPI,p+4))if(p+8+read(raw,p+4)>=base+b.size)parents.push(p);
+    for(const p of structuralStarts)if(p<b.pos&&p+8+read(raw,p+4)>=base+b.size)parents.push(p);
     check(parents.length===1&&parents[0]===parent,'unverified enclosing record lengths');
     edits.push({offset:b.pos+4,remove:4,bytes:word(b.size+4)},
       {offset:base+104,remove:4,bytes:encoder.encode('bdUB')},

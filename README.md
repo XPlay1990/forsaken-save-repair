@@ -1,6 +1,6 @@
 # Warcraft III · Forsaken Save Repair
 
-**Public beta · v0.1.0-beta.3.** A static recovery tool for pre-3.0.1 Forsaken
+**Public beta · v0.1.0-beta.4.** A static recovery tool for pre-3.0.1 Forsaken
 Kingdom saves, targeting Warcraft III 3.0.1.24342. Select the campaign folder,
 choose one checkpoint, and download its repaired ZIP. Processing stays in a
 browser worker; there are no save uploads, accounts, telemetry or remote APIs.
@@ -14,14 +14,19 @@ unchanged; an unknown main map or invalid container cannot be exported as a
 repaired checkpoint. The serialization build does not identify the source patch.
 Later patches are unsupported.
 
-Known old Scarlet Monastery saves (build 7000, checksum `b0669dc1` or already
-repaired to `3cb04734`) also receive a narrow Deathseeker projectile migration.
+Build-7000 saves on any recognized campaign/prologue map also receive the
+Deathseeker projectile migration when the exact old `MUdb` layout is present.
+This includes companion snapshots and earlier checksum-only repairs; a
+previously observed source checksum is not required. The source patch still
+cannot be inferred from the checksum or serialization build alone.
 The `MUdb` allocation and instance records are validated before inserting the
 observed extra field and restoring the buff identifier. Enclosing lengths and
 container checksums are updated; object identifiers, saved Lua, quests and
 inventory records remain unchanged. Unrecognized projectile layouts block
 conversion. Current layouts are left intact, making repeated repair idempotent.
-Other maps and save revisions do not receive this native-state migration.
+Other projectile types, unknown maps and newer serialization builds do not
+receive this native-state migration. Detection validates native tables instead
+of taking the first occurrence of a marker, which may also occur in saved text.
 
 The selected main save's stored companion path takes precedence over a
 filename match. This supports `Blizzard`, `FKManualSaves`, `CustomSaves` and other
@@ -56,12 +61,17 @@ The browser repair matches independently generated private Python outputs for
 Scarlet (2)–(5), including an earlier checksum-only export, byte for byte.
 The player also confirmed that targeted (2), (3) and (5) copies load. Subsequent
 combat, quest progression and travel remain unverified. Scripts, quests,
-inventory and unrelated native states are not migrated.
+inventory and unrelated native states are not migrated. Cross-map synthetic
+tests cover all 20 recognized targets, old/current layouts, block boundaries,
+misleading marker strings and companion exports. The projectile migration has
+player validation in Scarlet Monastery; its use on other maps remains untested
+in game.
 
 Folder listing reads metadata only, so a collection larger than 1 GB is allowed.
 The selected checkpoint and companions are limited to 1 GB and 5,000 files.
-Files are processed sequentially. Identity-only repair streams expanded blocks;
-projectile analysis temporarily holds one expanded Scarlet save. ZIP entries
+Files are processed sequentially. A streaming type scan keeps saves without
+Deathseeker projectiles on the block-by-block path; candidate saves are expanded
+one at a time for native layout analysis. ZIP entries
 are stored because the game saves are already compressed.
 
 ## Development

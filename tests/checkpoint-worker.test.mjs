@@ -13,13 +13,14 @@ test('worker exports projectile-only recovery and the saved FKManualSaves direct
     const name='Scarlet (4)_repaired.w3z',path='ForsakenKingdom/'+name,folder='FKManualSaves/Original (4)',snapshot=folder+'/UndeadRE02.w3z';
     const map=PROFILE.maps.find(map=>map.id==='undeadre02_06');
     const original=nativeFixture({checksum:map.current,companionPath:folder.replaceAll('/','\\')});
-    const companion=fixture(PROFILE.maps.find(map=>map.id==='undeadre02'),'35f0eca7').data;
+    const companion=nativeFixture({map:PROFILE.maps.find(map=>map.id==='undeadre02'),checksum:'35f0eca7'});
     const make=(path,data)=>{const file=new File([data],path.split('/').at(-1));Object.defineProperty(file,'webkitRelativePath',{value:path});return file;};
     await self.onmessage({data:{type:'listFolder',files:[make(path,original),make('ForsakenKingdom/'+snapshot,companion),make('ForsakenKingdom/Blizzard/Scarlet (4)_repaired/UndeadRE02.w3z',companion)]}});
     await self.onmessage({data:{type:'checkpoint',path}});
     assert.equal(messages.at(-1).type,'analyzed',messages.at(-1).message);
     assert.equal(messages.at(-1).selection.companionFolder,'ForsakenKingdom/'+folder);
     assert.equal(messages.at(-1).rows[0].projectileRepairCount,1);
+    assert.equal(messages.at(-1).rows[1].projectileRepairCount,1,'The same migration must apply to a companion on another map');
     await self.onmessage({data:{type:'report'}});
     const analysis=JSON.parse(await messages.at(-1).blob.text());assert.equal(analysis.repairMode,'identity-and-deathseeker-projectiles');
     await self.onmessage({data:{type:'export'}});
@@ -30,6 +31,7 @@ test('worker exports projectile-only recovery and the saved FKManualSaves direct
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.saves[0].inputChecksum,map.current);assert.equal(report.saves[0].outputChecksum,map.current);
     assert.equal(report.changed[0].projectileRepairs,1);assert.equal(report.filenamesPreserved,true);
+    assert.equal(report.changed[1].projectileRepairs,1);
     assert.equal(JSON.stringify(report).includes('nativePayload'),false);
   }finally{delete globalThis.self;}
 });

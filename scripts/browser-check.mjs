@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
 import {inspectSave,repairSave} from '../dist/repair.mjs';
 import {fixture} from '../tests/save-fixture.mjs';
+import {nativeFixture,expanded} from '../tests/native-fixture.mjs';
 import {PROFILE} from '../dist/profiles.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(root,'.local-tests');await mkdir(output,{recursive:true});
@@ -163,6 +164,28 @@ try{
     assert.equal(report.repairMode,'identity-and-deathseeker-projectiles');assert.equal(report.changed[0].projectileRepairs,2);
     await page.screenshot({path:path.join(output,'scarlet-export.png'),fullPage:true});
     console.log('Real Scarlet (4) browser download exactly matches game-tested recovery; FKManualSaves selected over filename match; names/report/privacy checked.');
+  }
+  {
+    const folder=path.join(output,'cross-map-input','ForsakenKingdom'),stored='FKManualSaves/Anya checkpoint',main='Anya checkpoint.w3z',snapshot=stored+'/UndeadRE03b.w3z';
+    const mainMap=PROFILE.maps.find(map=>map.id==='undeadre01'),companionMap=PROFILE.maps.find(map=>map.id==='undeadre03b');
+    await mkdir(path.join(folder,stored),{recursive:true});
+    await writeFile(path.join(folder,main),nativeFixture({map:mainMap,checksum:'11223344',decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')}));
+    await writeFile(path.join(folder,snapshot),nativeFixture({map:companionMap,checksum:'11223344'}));
+    await page.locator('#clear').click().catch(()=>{});await page.locator('#folder-input').setInputFiles(folder);
+    await page.locator('.checkpoint-choice').filter({hasText:'Anya checkpoint'}).click();
+    await page.locator('#results').waitFor({state:'visible',timeout:120000});
+    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+    const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
+    const file=await download,zipPath=path.join(output,'cross-map-site-export.zip');await file.saveAs(zipPath);
+    const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
+    assert.deepEqual(Object.keys(zip).sort(),[main,snapshot,'forsaken-repair-report.json'].sort());
+    const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
+    assert.equal(hash(expanded(zip[main])),hash(expanded(nativeFixture({map:mainMap,current:true,checksum:mainMap.current,decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')}))));
+    assert.equal(hash(expanded(zip[snapshot])),hash(expanded(nativeFixture({map:companionMap,current:true,checksum:companionMap.current}))));
+    const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
+    assert.equal(report.repairMode,'identity-and-deathseeker-projectiles');assert.ok(report.saves.every(row=>row.projectileRepairCount===1&&row.sourceRevisionKnown===false));
+    assert.ok(report.changed.every(row=>row.projectileRepairs===1));
+    console.log('Cross-map browser export migrated both an Act One main and Act Three companion; independent current-layout payloads, block boundary and marker decoys passed.');
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');
