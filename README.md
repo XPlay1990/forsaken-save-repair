@@ -59,8 +59,11 @@ certify every quest, later transition or checkpoint.
 
 The browser repair matches independently generated private Python outputs for
 Scarlet (2)–(5), including an earlier checksum-only export, byte for byte.
-The player also confirmed that targeted (2), (3) and (5) copies load. Subsequent
-combat, quest progression and travel remain unverified. Scripts, quests,
+The player also confirmed that targeted (2), (3) and (5) copies load.
+On 2026-10-08, the player reported testing every Neo save available to them with
+the current converter and said they all work. That report does not identify
+additional map coverage or establish a complete campaign playthrough.
+Subsequent combat, quest progression and travel remain unverified. Scripts, quests,
 inventory and unrelated native states are not migrated. Cross-map synthetic
 tests cover all 20 recognized targets, old/current layouts, block boundaries,
 misleading marker strings and companion exports. The projectile migration has

@@ -11,6 +11,9 @@
 - Cross-map synthetic and companion-export tests passed. Real Scarlet outputs
   still match the player-tested repairs; projectile migration on other maps has
   not yet been tested in game.
+- On 2026-10-08, the player reported that every available Neo save works with
+  the current converter. Additional map coverage and full campaign progression
+  were not specified.
 
 ## v0.1.0-beta.3
 
