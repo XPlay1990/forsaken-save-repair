@@ -29,8 +29,9 @@ Main-save loading, travel between all three maps, and saving again in Undercity
 were confirmed by a player, including travel to Trade Quarter. The player also
 reported a successful `beforebaron` playtest after reverting to checksum-only
 browser exports. These are recovered playthroughs, not proof that
-every campaign script is compatible. Other Act One areas also need separately
-verified donors before they can be added. The tool does **not** port saved quest or
+every campaign script is compatible. Other maps have archive-derived target
+checksums but still need source-format validation and game tests before they can
+be enabled. The tool does **not** port saved quest or
 item-drop scripts. Unknown checksums for a supported map block export rather
 than guessing. Unsupported companion map checksums remain unchanged and are
 identified in the report. Unsupported main
@@ -66,6 +67,24 @@ Unverifiable fields are null, rather than guessed. Reports from an original save
 and a fresh post-patch save of the same map can identify candidate checksum
 pairs; format validation and game testing are still required before support is
 enabled. A report cannot restore a missing companion's saved progress.
+
+`src/map-checksums.mjs` records target checksums for all 20 installed campaign
+maps, including Acts One–Three and the separate prologue. They were extracted
+from authenticated 3.0.1.24342 archives using the XOR/rotate calculation inspected
+in the running engine; all six available current-patch donor checksums matched.
+The calculation starts with the compiled Lua script's hash, then combines the
+readable nonempty terrain, pathing, doodad, object and W3L members in engine order.
+It does not use an ordinary archive CRC32 or the legacy common.j/blizzard.j seed.
+The local extraction used the MIT
+[w3xd-toolkit reader](https://github.com/mythic-p/w3xd-toolkit); no reader code,
+game archives, license material or save content is distributed with the site.
+
+Target lookup supplies report metadata only: unsupported files remain unchanged,
+and the exact repair profile still governs conversion. A source save supplies its
+own old checksum, so one old donor per map is not inherently required once the
+target calculation is verified. Accepting additional source revisions still needs
+a defined compatibility policy and loading/travel tests. Newly derived targets
+must not be described as game-tested maps.
 
 The supported main filename receives `_repaired`, with `_repaired_2`,
 `_repaired_3`, etc. to avoid existing filenames. Already suffixed main filenames

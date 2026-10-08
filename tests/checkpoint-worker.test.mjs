@@ -33,7 +33,7 @@ test('checkpoint export retains original companion paths and changes only the ve
     const root=report.saves.find(row=>row.file===main),unsupported=report.saves.find(row=>row.status==='unsupported');
     assert.equal(root.inputChecksum,PROFILE.maps[0].old);assert.equal(root.outputChecksum,PROFILE.maps[0].current);
     assert.equal(unsupported.mapPath,'Campaign\\ForsakenKingdom\\undeadre01_05.w3xd');assert.equal(unsupported.mapId,'undeadre01_05');
-    assert.equal(unsupported.inputChecksum,'11223344');assert.equal(unsupported.outputChecksum,'11223344');assert.equal(unsupported.targetChecksum,null);
+    assert.equal(unsupported.inputChecksum,'11223344');assert.equal(unsupported.outputChecksum,'11223344');assert.equal(unsupported.targetChecksum,'e3d412fe');
     assert.equal(unsupported.build,7003);assert.equal(unsupported.gameIdentifier,PROFILE.gameIdentifier);assert.equal(unsupported.gameVersion,PROFILE.gameVersion);
     assert.deepEqual(report.unchangedUnsupported,[unsupported]);
     assert.deepEqual(report.missingCompanions,{folders:[],files:['Blizzard/beforebaron/UndeadRE01_02.w3z']});

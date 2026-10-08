@@ -1,6 +1,7 @@
 import {Inflate, Deflate, constants} from './vendor/pako.mjs';
 import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
 import {knownMap} from './map-catalog.mjs';
+import {targetMapChecksum} from './map-checksums.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
 const BLOCK_SIZE=1048576;
@@ -103,7 +104,7 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const details={map:info.map,mapId:supported?.id||info.map.split(/[\\/]/).at(-1).replace(/\.w3xd$/i,'').toLowerCase(),
     mapName:supported?.name||unsupportedMapName(info.map)||info.map.split(/[\\/]/).at(-1),
     mapNameSource:supported?'repair-profile':knownMap(info.map)?.nameSource||'map-filename',
-    checksum:info.checksum,targetChecksum:supported?.current,build,blocks:count,
+    checksum:info.checksum,targetChecksum:supported?.current||targetMapChecksum(info.map)?.current,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
   let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';
   try{
