@@ -2,6 +2,8 @@
 
 Internal development checklist; excluded from the published website.
 
+- [ ] **Derive current checksums from installed maps**: the MIT `mythic-p/w3xd-toolkit` reader (commit `428148bc8f0adf35f582a67ddb438ade37f014f5`) passed all 53 synthetic tests and authenticated/decrypted six installed 3.0.1 campaign maps in private research. Ordinary encrypted/decrypted file CRC32, content digests and the tested legacy XOR/rotate variants did not reproduce the known save checksums. Inspect the running engine's checksum routine, reproduce all six donor values, then build a target-checksum table for every map. A source save already supplies its old checksum; an old donor per map is not mathematically required, but accepting additional source revisions still needs an explicit compatibility policy and game validation. Do not enable guessed mappings. The retained 3.0.0 build view exposed 138,465 entries but no Forsaken Kingdom `.w3xd` names, so its configuration alone does not prove the old maps remain available.
+
 - [x] **Checksum-only export playtest**: on 2026-10-08, the player reported that the `beforebaron` playtest works after folder migration was disabled.
 
 - [ ] **Matching repaired-folder names — disabled after a loading crash**: the player reported `beforebaron_repaired` crashing during loading on 3.0.1. Independent native-zlib comparison verified exactly eight intended path edits across the main and three companions, but this did not establish engine-compatible serialization. The checksum-only `beforebaron` control subsequently passed the player's playtest with original folder paths. The exact engine constraint remains unresolved. Re-enable folder migration only after explaining it and confirming loading, travel and resaving.
