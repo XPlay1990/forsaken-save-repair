@@ -2,8 +2,8 @@
 
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
 the three verified Act One maps, patch 3.0.0 → 3.0.1 (build 24342)**. Select the complete campaign
-folder, pick one checkpoint, and download its repaired bundle. A ZIP is also
-supported as an optional whole-bundle workflow.
+folder, pick one checkpoint, and download its repaired bundle. Folder selection
+is the only input workflow; repaired bundles download as ZIP files.
 
 All save processing runs in a Web Worker on the player's computer. No save
 uploads, telemetry, account login, remote APIs, CDN assets, or persistent storage
@@ -42,8 +42,7 @@ be exported as repaired checkpoints.
 The selected ZIP contains the main save, its linked companions, and a repair report,
 ready to extract into the existing campaign folder. Other checkpoints, global
 cache files and `Blizzard/Zones` are excluded. Working Zones may represent a
-different checkpoint; loading a checkpoint restores its own snapshots. The
-optional whole-ZIP workflow retains all input files and relative paths.
+different checkpoint; loading a checkpoint restores its own snapshots.
 Supported main saves receive `_repaired` before `.w3z`. Already suffixed
 checkpoints keep their names; collisions use `_repaired_2`, `_repaired_3`, etc.
 Unsupported main saves retain their names. All name changes appear in the
@@ -61,9 +60,8 @@ the browser export's naming and preserved paths are checked programmatically.
 
 Large bundles are processed file by file, with one expanded save block in
 memory at a time. Each selected checkpoint bundle is limited to 1 GB and 5,000
-files; the whole folder can be larger. Whole-ZIP input is still limited to 1 GB.
-ZIP64, encryption,
-duplicate paths, traversal paths, corrupt containers, and unknown supported-map
+files; the whole folder can be larger. Duplicate paths, traversal paths,
+corrupt containers, and unknown supported-map
 revisions are rejected. The downloaded ZIP uses stored entries because game
 saves are already compressed.
 

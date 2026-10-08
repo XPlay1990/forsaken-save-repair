@@ -1,10 +1,10 @@
 /** Local-only full browser check. Private save fixtures are never part of dist. */
 import {chromium} from 'playwright';
-import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdir} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import {zipSync,unzipSync} from 'fflate';
+import {unzipSync} from 'fflate';
 import {inspectSave} from '../dist/repair.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(root,'.local-tests');await mkdir(output,{recursive:true});
@@ -16,7 +16,7 @@ page.on('pageerror',error=>errors.push(error.message));
 page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
 try{
   await page.goto('http://127.0.0.1:4173/');
-  assert.equal(await page.locator('#roadmap, .map-panel, .map-ledger').count(),0);
+  assert.equal(await page.locator('#roadmap, .map-panel, .map-ledger, #zip-input, #zip-button, .zip-option').count(),0);
   assert.equal(await page.locator('#bundle-location').isVisible(),true);
   assert.match(await page.locator('#bundle-location').textContent(),/Documents\\Warcraft III\\BattleNet\\<account-number>\\Campaigns\\ForsakenKingdom/);
   assert.match(await page.locator('#bundle-location').textContent(),/OneDrive/);
@@ -31,54 +31,8 @@ try{
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mobile page overflows');
   await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Small mobile page overflows');
   await page.setViewportSize({width:1440,height:1080});
-  const recovery=process.env.FORSAKEN_RECOVERY_ROOT;
-  if(recovery){
-    const input={};
-    for(const name of ['UndeadRE01.w3z','UndeadRE01_02.w3z','UndeadRE01_03.w3z'])input[`ForsakenKingdom/Blizzard/checkpoint/${name}`]=new Uint8Array(await readFile(path.join(recovery,'pre-install-backup','Blizzard','after_patch_Undercity',name)));
-    input['ForsakenKingdom/checkpoint.w3z']=input['ForsakenKingdom/Blizzard/checkpoint/UndeadRE01.w3z'];
-    input['ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z']=input['ForsakenKingdom/checkpoint.w3z'];
-    input['ForsakenKingdom/Blizzard/checkpoint/notes.txt']=new TextEncoder().encode('Companion folder contents move together.');
-    input['ForsakenKingdom/Campaigns.w3v']=new Uint8Array(await readFile(path.join(recovery,'transition-backup','Campaigns.w3v')));
-    input['ForsakenKingdom/notes.txt']=new TextEncoder().encode('This unrelated file must stay unchanged.');
-    input['ForsakenKingdom/empty.txt']=new Uint8Array();
-    const zipped=zipSync(input,{level:0});
-    const inputZip=path.join(output,'campaign.zip');await writeFile(inputZip,zipped);
-    await page.locator('#zip-input').setInputFiles(inputZip);
-    await Promise.race([page.locator('#results').waitFor({state:'visible',timeout:120000}),page.locator('#error').waitFor({state:'visible',timeout:120000}).then(async()=>{throw Error(await page.locator('#error').textContent());})]);
-    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
-    assert.equal(await page.locator('#export').isEnabled(),true);
-    await page.screenshot({path:path.join(output,'checked.png'),fullPage:true});
-    await context.setOffline(true);
-    const downloadPromise=page.waitForEvent('download');
-    await page.locator('#export').click();await page.locator('#success').waitFor({state:'visible',timeout:120000});
-    const download=await downloadPromise;
-    const destination=path.join(output,'converted.zip');await download.saveAs(destination);
-    const converted=unzipSync(new Uint8Array(await readFile(destination)));
-    for(const name of ['UndeadRE01.w3z','UndeadRE01_02.w3z','UndeadRE01_03.w3z']){
-      const actual=converted[`ForsakenKingdom/Blizzard/checkpoint/${name}`];const reference=new Uint8Array(await readFile(path.join(recovery,'act1-complete','Blizzard','after_patch_Undercity',name)));
-      const a=inspectSave(actual),b=inspectSave(reference);assert.equal(a.status,'current');assert.deepEqual(a.first,b.first);assert.deepEqual(actual.subarray(a.firstEnd),reference.subarray(b.firstEnd));
-    }
-    assert.deepEqual(converted['ForsakenKingdom/Campaigns.w3v'],input['ForsakenKingdom/Campaigns.w3v']);assert.deepEqual(converted['ForsakenKingdom/notes.txt'],input['ForsakenKingdom/notes.txt']);assert.equal(converted['ForsakenKingdom/empty.txt'].length,0);
-    assert.equal(inspectSave(converted['ForsakenKingdom/checkpoint_repaired.w3z']).status,'current');
-    assert.equal(inspectSave(converted['ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z']).status,'current');
-    assert.equal(converted['ForsakenKingdom/checkpoint.w3z'],undefined);
-    assert.deepEqual(converted['ForsakenKingdom/Blizzard/checkpoint/notes.txt'],input['ForsakenKingdom/Blizzard/checkpoint/notes.txt']);
-    const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));assert.equal(report.changed.length,5);assert.equal(report.renamed.length,1);
-    assert.match(await page.locator('#success-copy').textContent(),/Download started/);
-    await context.setOffline(false);await page.locator('#clear').click();
-    await page.locator('#folder-input').setInputFiles(path.join(recovery,'pre-install-backup','Blizzard','after_patch_Undercity'));
-    await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/main .w3z saves/);
-    await page.locator('#clear').click();
-    const malicious=zipSync({'../bad.w3z':new Uint8Array([1,2,3])});await page.locator('#zip-input').setInputFiles({name:'bad.zip',mimeType:'application/zip',buffer:Buffer.from(malicious)});
-    await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/Unsafe/);assert.equal(await page.locator('#export').isEnabled(),false);
-    await page.locator('#clear').click();
-    const badCache=zipSync({'Campaigns.w3v':new Uint8Array([0x61,0x62,0x63])},{level:0});const nameLength=new DataView(badCache.buffer).getUint16(26,true),extraLength=new DataView(badCache.buffer).getUint16(28,true);badCache[30+nameLength+extraLength]^=1;
-    await page.locator('#zip-input').setInputFiles({name:'corrupt-cache.zip',mimeType:'application/zip',buffer:Buffer.from(badCache)});await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/ZIP integrity/);
-    console.log('Browser ZIP conversion: real saves match Python recovery; main checkpoint renamed; original companion paths, Zones names and cache preserved; export works offline; malicious ZIP paths and corrupt cache rejected.');
-  }
   const campaign=process.env.FORSAKEN_CAMPAIGN_ROOT;
   if(campaign){
-    await page.locator('#clear').click();
     await page.locator('#folder-input').evaluate(input=>input.addEventListener('change',()=>{window.testFolderMetadata={bytes:Array.from(input.files).reduce((sum,file)=>sum+file.size,0),files:input.files.length};},{capture:true,once:true}));
     await page.locator('#folder-input').setInputFiles(campaign);
     await page.locator('#save-picker').waitFor({state:'visible',timeout:30000});

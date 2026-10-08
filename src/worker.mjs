@@ -1,7 +1,6 @@
-import {Unzip, UnzipInflate, Zip, ZipPassThrough} from './vendor/fflate.mjs';
-import {inspectSave,repairSave,safePath,assertUniquePaths,crc32State} from './repair.mjs';
+import {Zip, ZipPassThrough} from './vendor/fflate.mjs';
+import {inspectSave,repairSave,assertUniquePaths} from './repair.mjs';
 import {PROFILE} from './profiles.mjs';
-import {readZipIndex} from './zip-index.mjs';
 import {planBundleNames} from './bundle-names.mjs';
 import {indexFolder,resolveCheckpointBundle,companionReferenceScanner} from './checkpoint-bundle.mjs';
 
@@ -10,36 +9,6 @@ const MAX_BYTES=1024*1024*1024,MAX_FILES=5000,CHUNK=1024*1024;
 const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
-async function unpack(file){
-  ensure(file.size<=MAX_BYTES,'This ZIP is larger than the 1 GB browser limit.');
-  const index=await readZipIndex(file,MAX_BYTES);
-  const found=[];let total=0;let failure;let active=0;
-  const unzip=new Unzip(entry=>{
-    if(entry.name.endsWith('/'))return;
-    const path=safePath(entry.name);
-    const expected=index.get(path.toLowerCase());ensure(expected&&expected.path===path,'The ZIP directory and file entries disagree.');
-    ensure(found.length<MAX_FILES,'The bundle contains too many files.');
-    if(entry.originalSize!==undefined)ensure(entry.originalSize<=MAX_BYTES,'A ZIP entry is too large.');
-    active++;const chunks=[];let crc=0xffffffff,entrySize=0;const item={path,blob:null};found.push(item);
-    entry.ondata=(error,chunk,final)=>{
-      if(error){failure=error;return;}
-      total+=chunk.length;ensure(total<=MAX_BYTES,'The expanded ZIP is larger than the 1 GB browser limit.');
-      entrySize+=chunk.length;ensure(entrySize<=expected.size,'A ZIP entry expands beyond its declared size.');crc=crc32State(chunk,crc);
-      chunks.push(chunk);
-      if(final){ensure(entrySize===expected.size&&((crc^0xffffffff)>>>0)===expected.crc,`ZIP integrity check failed: ${path}`);item.blob=new Blob(chunks);active--;}
-    };
-    entry.start();
-  });
-  unzip.register(UnzipInflate);
-  for(let offset=0;offset<file.size;offset+=CHUNK){
-    const chunk=new Uint8Array(await file.slice(offset,offset+CHUNK).arrayBuffer());
-    unzip.push(chunk,offset+CHUNK>=file.size);
-    if(failure)throw failure;
-    send('progress',{message:'Opening the ZIP locally…',value:Math.min(8,8*(offset+chunk.length)/file.size)});
-  }
-  ensure(active===0&&found.every(x=>x.blob)&&found.length===index.size,'The ZIP is incomplete or uses unsupported encryption.');
-  return found;
-}
 function publicResult(result,path,size){
   const {map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks}=result;
   return {path,size,map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks};
@@ -51,7 +20,7 @@ function summary(rows){
   return {maps,repair:rows.filter(x=>x.status==='repair').length,current:rows.filter(x=>x.status==='current').length,
     unsupported:rows.filter(x=>x.status==='unsupported').length,blocked:rows.filter(x=>x.status==='blocked').length,
     missing:maps.filter(x=>!x.repair&&!x.current).map(x=>x.name),
-    checkpointSupported:!selection||rows.some(row=>row.path===selection.path&&['repair','current'].includes(row.status))};
+    checkpointSupported:!!selection&&rows.some(row=>row.path===selection.path&&['repair','current'].includes(row.status))};
 }
 async function listFolder(files){
   const indexed=indexFolder(files);inventory=indexed.entries;entries=[];analysis=[];selection=null;
@@ -77,13 +46,6 @@ async function analyzeCheckpoint(path){
   entries=bundle.entries;
   await analyzeEntries(cached);
 }
-async function analyze(files){
-  inventory=[];selection=null;
-  entries=[];analysis=[];
-  if(files.length===1&&files[0].name.toLowerCase().endsWith('.zip'))entries=await unpack(files[0]);
-  else entries=files.map(file=>({path:safePath(file.webkitRelativePath||file.name),blob:file}));
-  await analyzeEntries();
-}
 async function analyzeEntries(cached=new Map()){
   ensure(entries.length>0&&entries.length<=MAX_FILES,'This checkpoint contains too many files.');
   ensure(entries.reduce((sum,x)=>sum+x.blob.size,0)<=MAX_BYTES,'This checkpoint and its companions exceed 1 GB. Choose another save.');
@@ -106,11 +68,11 @@ async function analyzeEntries(cached=new Map()){
 }
 async function exportBundle(){
   const stats=summary(analysis);
-  ensure(entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
+  ensure(selection&&entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
   ensure(stats.repair+stats.current>0,'No supported Act One saves were selected.');
   ensure(stats.checkpointSupported,'This main save is not supported yet. Choose an Act One checkpoint.');
   const {paths,renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
-  if(selection){
+  {
     // Folder-picker paths include the chosen root; export its contents so the
     // user can copy the ZIP straight into the existing campaign directory.
     const prefix=selection.path.slice(0,selection.path.lastIndexOf('/')+1);
@@ -148,13 +110,12 @@ async function exportBundle(){
   const report=new ZipPassThrough(reportName);report.mtime=new Date('2026-10-08T00:00:00Z');zip.add(report);
   report.push(new TextEncoder().encode(JSON.stringify(metadata,null,2)),true);zip.end();
   if(zipError)throw zipError;
-  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length,renamed:renamed.length,filename:selection?paths.get(selection.path).split('/').at(-1).replace(/\.w3z$/i,'-bundle.zip'):'ForsakenKingdom-repaired.zip'});
+  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length,renamed:renamed.length,filename:paths.get(selection.path).replace(/\.w3z$/i,'-bundle.zip')});
 }
 self.onmessage=async event=>{
   try{
     if(event.data.type==='listFolder')await listFolder(event.data.files);
     else if(event.data.type==='checkpoint')await analyzeCheckpoint(event.data.path);
-    else if(event.data.type==='analyze')await analyze(event.data.files);
     else if(event.data.type==='export')await exportBundle();
     else throw Error('Unknown operation.');
   }catch(error){send('error',{message:error.message||String(error)});}

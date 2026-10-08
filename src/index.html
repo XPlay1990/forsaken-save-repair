@@ -20,8 +20,7 @@
           <svg class="bundle-icon" viewBox="0 0 76 68" fill="none" aria-hidden="true"><path d="M8 21h60v39H8zM8 21V9h23l8 12" stroke="currentColor" stroke-width="1.5"/><path d="M24 32h28v18H24zM31 41h14M38 34v14" stroke="currentColor" stroke-width="1.5"/></svg>
           <div class="picker-actions"><button type="button" id="folder-button" class="button primary">Choose ForsakenKingdom folder ↗</button></div>
           <p>Pick one save next. Its companion files are found automatically.</p>
-          <details class="zip-option"><summary>Have a ZIP instead?</summary><button type="button" id="zip-button" class="button secondary">Choose ZIP</button><p class="drop-hint">Whole-ZIP repair · Up to 1 GB</p></details>
-          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder" aria-describedby="bundle-location"><input type="file" id="zip-input" accept=".zip,application/zip" hidden aria-label="Select zipped campaign bundle">
+          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder" aria-describedby="bundle-location">
         </div>
         <div id="save-picker" hidden><label class="search-label" for="save-search">Your checkpoints</label><input id="save-search" class="save-search" type="search" placeholder="Find a save…" autocomplete="off"><ul id="checkpoint-list" class="checkpoint-list"></ul><p id="no-search-results" hidden>No matching saves.</p></div>
         <div class="progress-area" id="progress-area" hidden><div class="progress-top"><p id="progress-message" role="status" aria-live="polite">Checking…</p><button id="cancel" class="text-button" type="button">Cancel</button></div><progress id="progress" max="100" value="0" aria-label="Processing progress"></progress></div>

@@ -1,12 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {deflateSync,inflateSync,constants as z} from 'node:zlib';
-import {readFile,access} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {crc32,headerCRC,blockCRC,inspectSave,repairSave,encodeSettings,decodeSettings,safePath,assertUniquePaths} from '../dist/repair.mjs';
 import {PROFILE} from '../dist/profiles.mjs';
-import {readZipIndex} from '../dist/zip-index.mjs';
-import {zipSync} from 'fflate';
 const write=(data,pos,value)=>new DataView(data.buffer,data.byteOffset,data.byteLength).setUint32(pos,value,true);
 const bytes=hex=>Uint8Array.from(hex.match(/../g),x=>parseInt(x,16));
 function fixture(map=PROFILE.maps[0],checksum=map.old,build=7000){
@@ -45,8 +43,6 @@ test('unverified serialization builds are rejected',()=>assert.throws(()=>inspec
 test('corrupt block and header are rejected',()=>{const source=fixture().data;const bad=source.slice();bad[100]^=1;assert.throws(()=>repairSave(bad),/checksum/);const header=source.slice();header[60]^=1;assert.throws(()=>inspectSave(header),/header checksum/);});
 test('truncated saves are rejected',()=>assert.throws(()=>inspectSave(fixture().data.slice(0,-1)),/truncated/));
 test('bundle path traversal, absolute paths and duplicate Windows paths are rejected',()=>{for(const bad of ['../save.w3z','/save.w3z','C:/save.w3z','dir/../save','dir//save','CON.w3z','dir./save'])assert.throws(()=>safePath(bad));assert.equal(safePath('ForsakenKingdom\\Blizzard\\after_baron\\UndeadRE01.w3z'),'ForsakenKingdom/Blizzard/after_baron/UndeadRE01.w3z');assert.throws(()=>assertUniquePaths([{path:'a/Save.w3z'},{path:'a/save.w3z'}]),/Duplicate/);});
-test('ZIP index verifies bounds, file sizes and CRC metadata',async()=>{const data=new TextEncoder().encode('cache preserved');const zip=zipSync({'ForsakenKingdom/Campaigns.w3v':data});const entries=await readZipIndex(new Blob([zip]));assert.equal(entries.size,1);assert.equal(entries.values().next().value.crc,crc32(data));assert.equal(entries.values().next().value.size,data.length);await assert.rejects(readZipIndex(new Blob([zip.slice(0,-1)])),/truncated/);});
-test('ZIP traversal and oversized declarations are rejected before inflation',async()=>{const zip=zipSync({'../bad.w3z':new Uint8Array([1])});await assert.rejects(readZipIndex(new Blob([zip])),/Unsafe/);const tooBig=zipSync({'data.bin':new Uint8Array([1])});let p=0;const v=new DataView(tooBig.buffer);while(p<tooBig.length-46&&v.getUint32(p,true)!==0x02014b50)p++;v.setUint32(p+24,0x7fffffff,true);await assert.rejects(readZipIndex(new Blob([tooBig])),/exceeds/);});
 
 test('real Act One saves match independently repaired Python outputs',{skip:!process.env.FORSAKEN_RECOVERY_ROOT},async()=>{
   const root=process.env.FORSAKEN_RECOVERY_ROOT;

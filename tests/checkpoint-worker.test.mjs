@@ -12,5 +12,7 @@ test('worker lists a collection larger than 1 GB without reading any save and ap
   assert.equal(messages.at(-1).type,'checkpoints');assert.equal(messages.at(-1).checkpoints.length,2);
   await self.onmessage({data:{type:'checkpoint',path:files[1].webkitRelativePath}});
   assert.equal(reads,0);assert.equal(messages.at(-1).type,'error');assert.match(messages.at(-1).message,/individual save exceeds/);
+  await self.onmessage({data:{type:'analyze',files:[fake('campaign.zip',10)]}});
+  assert.equal(reads,0);assert.equal(messages.at(-1).type,'error');assert.match(messages.at(-1).message,/Unknown operation/);
   delete globalThis.self;
 });
