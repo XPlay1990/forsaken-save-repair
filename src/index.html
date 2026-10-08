@@ -50,6 +50,7 @@
           <label class="acknowledge" id="missing-ack-wrap" hidden><input type="checkbox" id="missing-ack"> I understand that missing companion maps may prevent travel.</label>
           <details class="file-details"><summary>File-by-file checks <span id="checked-count"></span></summary><ul id="file-list" class="file-list"></ul></details>
           <p class="repair-limit">This repairs map compatibility. It does not update saved quest scripts or fix every gameplay change introduced by the patch.</p>
+          <p class="repair-limit">Supported main saves receive <code>_repaired</code>. Existing suffixes are kept; name collisions receive a number. Companion folders and map snapshots keep their original paths because saves reference them internally.</p>
           <button type="button" class="button primary export-button" id="export" disabled>Repair &amp; download ZIP <span aria-hidden="true">↓</span></button>
         </div>
         <div class="success" id="success" hidden>
@@ -78,7 +79,7 @@
     </section>
     <section class="restore-guide" aria-labelledby="restore-title">
       <div><p class="eyebrow">AFTER THE DOWNLOAD</p><h2 id="restore-title">Put the bundle back together.</h2></div>
-      <ol><li><span>Close Warcraft III.</span> Make a separate backup of your existing campaign folder.</li><li><span>Extract the repaired ZIP.</span> Copy its campaign files into the same <code>ForsakenKingdom</code> folder, including the repaired companion files inside <code>Blizzard</code>. Keep the directory structure.</li><li><span>Load, travel, save.</span> Check both destinations and return to Undercity. Confirm your progress, then save under a new name.</li></ol>
+      <ol><li><span>Close Warcraft III.</span> Make a separate backup of your entire existing campaign folder.</li><li><span>Extract the repaired ZIP.</span> Copy its campaign files into the same <code>ForsakenKingdom</code> folder, including the companion files inside <code>Blizzard</code>. Keep their original paths. Companion snapshots and campaign cache may replace existing files.</li><li><span>Load a _repaired checkpoint, travel, save.</span> Check both destinations and return to Undercity. Confirm your progress, then save under a new name.</li></ol>
       <details class="location-help"><summary>Where is the campaign folder?</summary><p>Windows: <code>Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code></p><p>The page cannot change this folder. It gives you a new ZIP to restore yourself.</p></details>
     </section>
   </main>

@@ -26,9 +26,19 @@ than guessing. Other acts are copied unchanged and identified in the report.
 
 Select the entire `ForsakenKingdom` folder: visited areas have companion saves
 inside `Blizzard`, and the working copies in `Blizzard/Zones` matter too.
-The downloaded ZIP preserves filenames and directory structure. Close the
-game, back up the existing campaign folder, extract the repaired files into
-the original folder, and test loading and travel before saving under a new name.
+Supported main saves receive `_repaired` before `.w3z`. Already suffixed
+checkpoints keep their names; collisions use `_repaired_2`, `_repaired_3`, etc.
+Unsupported main saves retain their names. All name changes appear in the
+file checks and repair report. Companion folders and snapshot filenames retain
+their paths: inspected saves contain serialized references such as
+`Blizzard\\after_baron\\UndeadRE01_03.w3z`. Changing those paths would require
+gameplay-payload changes beyond the verified checksum repair.
+Close the game, back up the entire campaign folder, and extract the output into
+the original folder. Main checkpoint files can sit alongside their originals,
+but companion snapshots and campaign cache retain their paths and may replace
+existing files. Load a `_repaired` checkpoint and test travel before saving under
+a new name. Renamed main saves were used during the recovered playthrough;
+the browser export's naming and preserved paths are checked programmatically.
 
 Large bundles are processed file by file, with one expanded save block in
 memory at a time. A bundle is limited to 1 GB and 5,000 files. ZIP64, encryption,

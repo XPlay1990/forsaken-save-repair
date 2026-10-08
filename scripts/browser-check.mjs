@@ -28,11 +28,15 @@ try{
   if(recovery){
     const input={};
     for(const name of ['UndeadRE01.w3z','UndeadRE01_02.w3z','UndeadRE01_03.w3z'])input[`ForsakenKingdom/Blizzard/checkpoint/${name}`]=new Uint8Array(await readFile(path.join(recovery,'pre-install-backup','Blizzard','after_patch_Undercity',name)));
+    input['ForsakenKingdom/checkpoint.w3z']=input['ForsakenKingdom/Blizzard/checkpoint/UndeadRE01.w3z'];
+    input['ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z']=input['ForsakenKingdom/checkpoint.w3z'];
+    input['ForsakenKingdom/Blizzard/checkpoint/notes.txt']=new TextEncoder().encode('Companion folder contents move together.');
     input['ForsakenKingdom/Campaigns.w3v']=new Uint8Array(await readFile(path.join(recovery,'transition-backup','Campaigns.w3v')));
     input['ForsakenKingdom/notes.txt']=new TextEncoder().encode('This unrelated file must stay unchanged.');
     input['ForsakenKingdom/empty.txt']=new Uint8Array();
     const zipped=zipSync(input,{level:0});
-    await page.locator('#zip-input').setInputFiles({name:'campaign.zip',mimeType:'application/zip',buffer:Buffer.from(zipped)});
+    const inputZip=path.join(output,'campaign.zip');await writeFile(inputZip,zipped);
+    await page.locator('#zip-input').setInputFiles(inputZip);
     await Promise.race([page.locator('#results').waitFor({state:'visible',timeout:120000}),page.locator('#error').waitFor({state:'visible',timeout:120000}).then(async()=>{throw Error(await page.locator('#error').textContent());})]);
     assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
     assert.equal(await page.locator('#export').isEnabled(),true);
@@ -47,7 +51,12 @@ try{
       const a=inspectSave(actual),b=inspectSave(reference);assert.equal(a.status,'current');assert.deepEqual(a.first,b.first);assert.deepEqual(actual.subarray(a.firstEnd),reference.subarray(b.firstEnd));
     }
     assert.deepEqual(converted['ForsakenKingdom/Campaigns.w3v'],input['ForsakenKingdom/Campaigns.w3v']);assert.deepEqual(converted['ForsakenKingdom/notes.txt'],input['ForsakenKingdom/notes.txt']);assert.equal(converted['ForsakenKingdom/empty.txt'].length,0);
-    const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));assert.equal(report.changed.length,3);
+    assert.equal(inspectSave(converted['ForsakenKingdom/checkpoint_repaired.w3z']).status,'current');
+    assert.equal(inspectSave(converted['ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z']).status,'current');
+    assert.equal(converted['ForsakenKingdom/checkpoint.w3z'],undefined);
+    assert.deepEqual(converted['ForsakenKingdom/Blizzard/checkpoint/notes.txt'],input['ForsakenKingdom/Blizzard/checkpoint/notes.txt']);
+    const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));assert.equal(report.changed.length,5);assert.equal(report.renamed.length,1);
+    assert.match(await page.locator('#success-copy').textContent(),/1 main save renamed/);
     await context.setOffline(false);await page.locator('#clear').click();
     await page.locator('#folder-input').setInputFiles(path.join(recovery,'pre-install-backup','Blizzard','after_patch_Undercity'));
     await Promise.race([page.locator('#results').waitFor({state:'visible',timeout:120000}),page.locator('#error').waitFor({state:'visible',timeout:120000}).then(async()=>{throw Error(await page.locator('#error').textContent());})]);
@@ -59,7 +68,7 @@ try{
     await page.locator('#clear').click();
     const badCache=zipSync({'Campaigns.w3v':new Uint8Array([0x61,0x62,0x63])},{level:0});const nameLength=new DataView(badCache.buffer).getUint16(26,true),extraLength=new DataView(badCache.buffer).getUint16(28,true);badCache[30+nameLength+extraLength]^=1;
     await page.locator('#zip-input').setInputFiles({name:'corrupt-cache.zip',mimeType:'application/zip',buffer:Buffer.from(badCache)});await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/ZIP integrity/);
-    console.log('Browser ZIP conversion: 3 real saves match Python recovery; unrelated files/cache preserved; export works offline; malicious ZIP paths and corrupt cache rejected.');
+    console.log('Browser ZIP conversion: real saves match Python recovery; main checkpoint renamed; original companion paths, Zones names and cache preserved; export works offline; malicious ZIP paths and corrupt cache rejected.');
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

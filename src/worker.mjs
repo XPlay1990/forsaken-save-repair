@@ -2,6 +2,7 @@ import {Unzip, UnzipInflate, Zip, ZipPassThrough} from './vendor/fflate.mjs';
 import {inspectSave,repairSave,safePath,assertUniquePaths,crc32State} from './repair.mjs';
 import {PROFILE} from './profiles.mjs';
 import {readZipIndex} from './zip-index.mjs';
+import {planBundleNames} from './bundle-names.mjs';
 
 let entries=[];let analysis=[];
 const MAX_BYTES=1024*1024*1024,MAX_FILES=5000,CHUNK=1024*1024;
@@ -68,12 +69,14 @@ async function analyze(files){
     }catch(error){analysis.push({path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
     send('row',{row:analysis.at(-1)});
   }
-  send('analyzed',{rows:analysis,summary:summary(analysis),files:entries.length,bytes:entries.reduce((sum,x)=>sum+x.blob.size,0)});
+  const {renamed}=planBundleNames(entries,analysis);
+  send('analyzed',{rows:analysis,renamed,summary:summary(analysis),files:entries.length,bytes:entries.reduce((sum,x)=>sum+x.blob.size,0)});
 }
 async function exportBundle(){
   const stats=summary(analysis);
   ensure(entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
   ensure(stats.repair+stats.current>0,'No supported Act One saves were selected.');
+  const {paths,renamed}=planBundleNames(entries,analysis);
   const chunks=[];let zipError;
   const zip=new Zip((error,data,final)=>{if(error)zipError=error;else chunks.push(data);});
   const changes=[];
@@ -85,10 +88,10 @@ async function exportBundle(){
       const result=repairSave(new Uint8Array(await blob.arrayBuffer()));
       ensure(result.inspection.checksum===row.checksum,'A save changed since inspection.');
       blob=new Blob([result.data]);
-      changes.push({file:entry.path,map:row.mapName,from:row.checksum,to:row.targetChecksum,
+      changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
         changedPayloadOffsets:result.changedOffsets,buildPreserved:result.inspection.build,checks:'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
     }
-    const zipped=new ZipPassThrough(entry.path);
+    const zipped=new ZipPassThrough(paths.get(entry.path));
     zipped.mtime=new Date('2026-10-08T00:00:00Z');zip.add(zipped);
     for(let offset=0;offset<blob.size;offset+=CHUNK){
       zipped.push(new Uint8Array(await blob.slice(offset,offset+CHUNK).arrayBuffer()),offset+CHUNK>=blob.size);
@@ -97,15 +100,15 @@ async function exportBundle(){
     if(blob.size===0)zipped.push(new Uint8Array(),true);
   }
   const metadata={profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,scope:'Act One only',
-    created:new Date().toISOString(),changed:changes,unchangedUnsupported:analysis.filter(x=>x.status==='unsupported').map(x=>x.path),
+    created:new Date().toISOString(),changed:changes,renamed,unchangedUnsupported:analysis.filter(x=>x.status==='unsupported').map(x=>({file:x.path,outputFile:paths.get(x.path)})),
     missingMaps:stats.missing,verification:'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.',
     privacy:'All processing happened in this browser. No files were sent to a server.'};
   let reportName='forsaken-repair-report.json';
-  while(entries.some(x=>x.path.toLowerCase()===reportName.toLowerCase()))reportName='_'+reportName;
+  while(Array.from(paths.values()).some(path=>path.toLowerCase()===reportName.toLowerCase()))reportName='_'+reportName;
   const report=new ZipPassThrough(reportName);report.mtime=new Date('2026-10-08T00:00:00Z');zip.add(report);
   report.push(new TextEncoder().encode(JSON.stringify(metadata,null,2)),true);zip.end();
   if(zipError)throw zipError;
-  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length});
+  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length,renamed:renamed.length});
 }
 self.onmessage=async event=>{
   try{
