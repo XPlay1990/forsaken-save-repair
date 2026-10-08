@@ -16,14 +16,16 @@ test('campaign name lookup uses the complete path with case and separator normal
   assert.equal(MAP_CATALOG.filter(map=>map.section==='Prologue').length,5);
 });
 
-test('known names label every unsupported installed map without enabling a repair',()=>{
-  assert.deepEqual(PROFILE.maps.map(map=>map.id),['undeadre01','undeadre01_02','undeadre01_03']);
+test('all installed maps are eligible for checksum repair with explicit game-test provenance',()=>{
+  assert.equal(PROFILE.maps.length,20);
   for(const map of MAP_CATALOG){
-    const supported=mapProfile(map.mapPath);if(supported)continue;
+    const supported=mapProfile(map.mapPath);assert.ok(supported,map.id);
     const source=fixture(map,'11223344').data,result=inspectSave(source);
-    assert.equal(result.status,'unsupported',map.id);assert.equal(result.mapName,map.name);
-    assert.equal(result.mapNameSource,map.nameSource);assert.equal(result.mapId,map.id);
-    assert.equal(result.targetChecksum,targetMapChecksum(map.mapPath).current);assert.deepEqual(repairSave(source).data,source);
+    assert.equal(result.status,'repair',map.id);assert.equal(result.mapName,supported.name);
+    assert.equal(result.mapNameSource,'repair-profile');assert.equal(result.mapId,map.id);
+    assert.equal(result.sourceRevisionKnown,false);assert.equal(result.mapGameTested,supported.gameTested);
+    assert.equal(result.targetChecksum,targetMapChecksum(map.mapPath).current);
+    assert.equal(inspectSave(repairSave(source).data).checksum,result.targetChecksum);
     assert.equal('old' in map||'current' in map,false,'Naming metadata must contain no repair checksum pair');
   }
 });

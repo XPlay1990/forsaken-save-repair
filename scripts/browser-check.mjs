@@ -23,6 +23,9 @@ try{
   const locationBox=await page.locator('#bundle-location').boundingBox(),uploadBox=await page.locator('#folder-button').boundingBox();
   assert.ok(locationBox.y+locationBox.height<uploadBox.y,'Folder location must appear above upload controls');
   assert.equal(await page.locator('#instructions-title').isVisible(),true);
+  assert.match(await page.locator('.limitations-list').textContent(),/all maps in Acts One–Three/);
+  assert.match(await page.locator('.limitations-list').textContent(),/Other areas still need testing/);
+  assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
   const todo=await readFile(path.join(root,'todo.md'),'utf8');assert.match(todo,/Arcane Sanctuary/);assert.match(todo,/Act Two/);assert.match(todo,/Act Three/);
   await assert.rejects(readFile(path.join(root,'dist','todo.md')),{code:'ENOENT'});
   await assert.rejects(readFile(path.join(root,'dist','roadmap.mjs')),{code:'ENOENT'});
@@ -96,21 +99,31 @@ try{
       await page.locator('#another-save').click();
     }
     await page.locator('#save-search').fill('Act Two - Undercity');
-    const unsupported=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^Act Two - Undercity$/})});
-    if(await unsupported.count()){
-      await unsupported.click();await page.locator('#error').waitFor({state:'visible',timeout:120000});
-      assert.match(await page.locator('#error').textContent(),/not supported/);assert.equal(await page.locator('#export').isEnabled(),false);
+    const actTwo=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^Act Two - Undercity$/})});
+    if(await actTwo.count()){
+      await actTwo.click();await page.locator('#results').waitFor({state:'visible',timeout:120000});
+      assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
       assert.equal(await page.locator('#report').isEnabled(),true);
-      const unsupportedDownload=page.waitForEvent('download',{timeout:30000});await page.locator('#report').click();
-      const unsupportedFile=await unsupportedDownload;await unsupportedFile.saveAs(path.join(output,'unsupported-report.json'));
-      const unsupportedReport=JSON.parse(await readFile(path.join(output,'unsupported-report.json'),'utf8'));
-      const observed=unsupportedReport.saves.find(row=>row.file===unsupportedReport.checkpoint.path);
+      const reportDownload=page.waitForEvent('download',{timeout:30000});await page.locator('#report').click();
+      const reportFile=await reportDownload;await reportFile.saveAs(path.join(output,'act-two-analysis.json'));
+      const report=JSON.parse(await readFile(path.join(output,'act-two-analysis.json'),'utf8'));
+      const observed=report.saves.find(row=>row.file===report.checkpoint.path);
       const actual=inspectSave(new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z'))));
-      assert.equal(unsupportedReport.reportKind,'analysis');assert.equal(observed.status,'unsupported');
+      assert.equal(report.reportKind,'analysis');assert.ok(['repair','current'].includes(observed.status));
       assert.equal(observed.mapPath,actual.map);assert.equal(observed.inputChecksum,actual.checksum);assert.equal(observed.build,actual.build);
-      assert.equal(observed.outputChecksum,null);assert.equal(await page.locator('#export').isEnabled(),false);
+      assert.equal(observed.outputChecksum,null);assert.equal(observed.targetChecksum,'e18988c1');assert.equal(observed.mapGameTested,false);
+      if(await page.locator('#missing-ack').isVisible())await page.locator('#missing-ack').check();
+      assert.equal(await page.locator('#export').isEnabled(),true);
+      const bundleDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
+      const bundleFile=await bundleDownload;await bundleFile.saveAs(path.join(output,'act-two-checksum-only.zip'));
+      const zipped=unzipSync(new Uint8Array(await readFile(path.join(output,'act-two-checksum-only.zip'))));
+      const exportedReport=JSON.parse(new TextDecoder().decode(zipped['forsaken-repair-report.json']));
+      const outputRow=exportedReport.saves.find(row=>row.file===exportedReport.checkpoint.path);
+      const original=new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z')));
+      assert.deepEqual(zipped[outputRow.outputFile],repairSave(original).data);
+      assert.equal(outputRow.outputChecksum,'e18988c1');
     }
-    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron and beforebaron scopes checked; existing names, search, unsupported-save blocking and offline download passed.`);
+    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; existing names, search and offline download passed.`);
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

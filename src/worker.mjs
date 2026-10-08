@@ -10,8 +10,8 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
-  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion};
+  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
+  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion};
 }
 function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
@@ -19,10 +19,12 @@ function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   const saves=analysis.map(row=>({file:row.path,outputFile:exported?paths.get(row.path):null,
     mapPath:row.map??null,mapId:row.mapId??null,mapName:row.mapName??null,mapNameSource:row.mapNameSource??null,
     inputChecksum:row.checksum??null,outputChecksum:exported?(row.status==='repair'?row.targetChecksum:row.checksum)??null:null,
-    targetChecksum:row.targetChecksum??null,build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
+    targetChecksum:row.targetChecksum??null,sourceRevisionKnown:row.sourceRevisionKnown??null,mapGameTested:row.mapGameTested??null,
+    build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
     status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null}));
   return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,
-    scope:'Selected checkpoint only; repair supports Act One',repairMode:'identity-only',folderPathsPreserved:true,
+    scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',repairMode:'identity-only',folderPathsPreserved:true,
+    sourcePolicy:PROFILE.sourcePolicy,mapVerification:PROFILE.verification,
     created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed,
     unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
     missingCompanions:{folders:selection.missingFolders,files:selection.missingFiles},supportedMapsNotInBundle:stats.missing,
@@ -90,8 +92,8 @@ async function analyzeEntries(cached=new Map()){
 async function exportBundle(){
   const stats=summary(analysis);
   ensure(selection&&entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
-  ensure(stats.repair+stats.current>0,'No supported Act One saves were selected.');
-  ensure(stats.checkpointSupported,'This main save is not supported yet. Choose an Act One checkpoint.');
+  ensure(stats.repair+stats.current>0,'No recognized campaign saves were selected.');
+  ensure(stats.checkpointSupported,'This main save is not a recognized campaign map.');
   const {paths,renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
   {
     // Folder-picker paths include the chosen root; export its contents so the

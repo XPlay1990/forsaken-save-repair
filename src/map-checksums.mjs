@@ -1,6 +1,6 @@
 /** Target checksums derived from authenticated installed 3.0.1.24342 archives.
- * Engine XOR/rotate routine matched six fresh-save donors. Metadata alone never
- * enables repair: profiles.mjs still governs accepted revisions and game tests.
+ * Engine XOR/rotate routine matched six fresh-save donors. profiles.mjs governs
+ * the accepted save formats; gameTested records actual player validation.
  * Raw checksums are four little-endian bytes rendered as hex, not numeric hex.
  */
 export const TARGET_BUILD = '3.0.1.24342';

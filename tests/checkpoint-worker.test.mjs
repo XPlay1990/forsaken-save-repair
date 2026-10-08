@@ -5,7 +5,7 @@ import {unzipSync} from 'fflate';
 import {repairSave,inspectSave} from '../dist/repair.mjs';
 import {PROFILE} from '../dist/profiles.mjs';
 
-test('checkpoint export retains original companion paths and changes only the verified map identity',async()=>{
+test('checkpoint export repairs an additional Act One companion while preserving paths and unsupported content',async()=>{
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?identity-only-regression');
@@ -16,29 +16,32 @@ test('checkpoint export retains original companion paths and changes only the ve
       {offset:1500100,text:'Blizzard\\beforebaron\\UndeadRE01_02.w3z'}]}).data;
     const companion=fixture(PROFILE.maps[2],PROFILE.maps[2].current,7003,{records:[
       {offset:1048570,text:'Blizzard\\Act One - Tirisfal Glades'}]}).data;
-    const unknown=fixture({id:'undeadre01_05',old:'11223344'},'11223344',7003).data;
-    const files=[[main,original],['ForsakenKingdom/Blizzard/beforebaron/UndeadRE01_03.w3z',companion],['ForsakenKingdom/Blizzard/beforebaron/UndeadRE01_05.w3z',unknown],['ForsakenKingdom/beforebaron_repaired.w3z',original]]
+    const arcane=fixture({id:'undeadre01_05'},'11223344',7003).data,unknown=fixture({id:'undeadre99'},'11223344',7003).data;
+    const files=[[main,original],['ForsakenKingdom/Blizzard/beforebaron/UndeadRE01_03.w3z',companion],['ForsakenKingdom/Blizzard/beforebaron/UndeadRE01_05.w3z',arcane],['ForsakenKingdom/Blizzard/beforebaron/UndeadRE99.w3z',unknown],['ForsakenKingdom/beforebaron_repaired.w3z',original]]
       .map(([path,data])=>{const file=new File([data],path.split('/').at(-1));Object.defineProperty(file,'webkitRelativePath',{value:path});return file;});
     await self.onmessage({data:{type:'listFolder',files}});
     await self.onmessage({data:{type:'checkpoint',path:main}});
     await self.onmessage({data:{type:'export'}});
     assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
     const output=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
-    assert.deepEqual(Object.keys(output).sort(),['Blizzard/beforebaron/UndeadRE01_03.w3z','Blizzard/beforebaron/UndeadRE01_05.w3z','beforebaron_repaired_2.w3z','forsaken-repair-report.json'].sort());
+    assert.deepEqual(Object.keys(output).sort(),['Blizzard/beforebaron/UndeadRE01_03.w3z','Blizzard/beforebaron/UndeadRE01_05.w3z','Blizzard/beforebaron/UndeadRE99.w3z','beforebaron_repaired_2.w3z','forsaken-repair-report.json'].sort());
     assert.deepEqual(output['beforebaron_repaired_2.w3z'],repairSave(original).data);
     assert.deepEqual(output['Blizzard/beforebaron/UndeadRE01_03.w3z'],companion);
-    assert.deepEqual(output['Blizzard/beforebaron/UndeadRE01_05.w3z'],unknown);
+    assert.deepEqual(output['Blizzard/beforebaron/UndeadRE01_05.w3z'],repairSave(arcane).data);
+    assert.deepEqual(output['Blizzard/beforebaron/UndeadRE99.w3z'],unknown);
     const report=JSON.parse(new TextDecoder().decode(output['forsaken-repair-report.json']));
-    assert.equal(report.reportVersion,1);assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,3);
+    assert.equal(report.reportVersion,1);assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
     const root=report.saves.find(row=>row.file===main),unsupported=report.saves.find(row=>row.status==='unsupported');
     assert.equal(root.inputChecksum,PROFILE.maps[0].old);assert.equal(root.outputChecksum,PROFILE.maps[0].current);
-    assert.equal(unsupported.mapPath,'Campaign\\ForsakenKingdom\\undeadre01_05.w3xd');assert.equal(unsupported.mapId,'undeadre01_05');
-    assert.equal(unsupported.inputChecksum,'11223344');assert.equal(unsupported.outputChecksum,'11223344');assert.equal(unsupported.targetChecksum,'e3d412fe');
+    assert.equal(unsupported.mapPath,'Campaign\\ForsakenKingdom\\undeadre99.w3xd');assert.equal(unsupported.mapId,'undeadre99');
+    assert.equal(unsupported.inputChecksum,'11223344');assert.equal(unsupported.outputChecksum,'11223344');assert.equal(unsupported.targetChecksum,null);
     assert.equal(unsupported.build,7003);assert.equal(unsupported.gameIdentifier,PROFILE.gameIdentifier);assert.equal(unsupported.gameVersion,PROFILE.gameVersion);
     assert.deepEqual(report.unchangedUnsupported,[unsupported]);
     assert.deepEqual(report.missingCompanions,{folders:[],files:['Blizzard/beforebaron/UndeadRE01_02.w3z']});
-    assert.equal(unsupported.mapNameSource,'loading-screen-filename');
-    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
+    assert.equal(unsupported.mapNameSource,'map-filename');
+    const repairedArcane=report.saves.find(row=>row.mapId==='undeadre01_05');
+    assert.equal(repairedArcane.outputChecksum,'e3d412fe');assert.equal(repairedArcane.sourceRevisionKnown,false);assert.equal(repairedArcane.mapGameTested,false);
+    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
     const old=inspectSave(original),fixed=inspectSave(output['beforebaron_repaired_2.w3z']);
     assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(fixed.firstEnd),original.subarray(old.firstEnd));
     assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(40,64),original.subarray(40,64));
@@ -49,7 +52,7 @@ test('unsupported checkpoints can export metadata-only reports while missing com
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?unsupported-report');
-    const main='ForsakenKingdom/Act Two.w3z';const data=fixture({id:'undeadre02',old:'35f0eca7'},'35f0eca7',7003).data;
+    const main='ForsakenKingdom/Unknown.w3z';const data=fixture({id:'undeadre99',old:'35f0eca7'},'35f0eca7',7003).data;
     const file=new File([data],'Act Two.w3z');Object.defineProperty(file,'webkitRelativePath',{value:main});
     await self.onmessage({data:{type:'listFolder',files:[file]}});
     await self.onmessage({data:{type:'report'}});assert.equal(messages.at(-1).type,'error');
@@ -59,8 +62,8 @@ test('unsupported checkpoints can export metadata-only reports while missing com
     assert.equal(messages.at(-1).type,'reported');assert.equal(messages.at(-1).blob.type,'application/json');
     const report=JSON.parse(await messages.at(-1).blob.text());
     assert.equal(report.reportKind,'analysis');assert.deepEqual(report.changed,[]);assert.deepEqual(report.renamed,[]);
-    assert.deepEqual(report.missingCompanions,{folders:['Act Two'],files:[]});
-    assert.equal(report.saves[0].mapId,'undeadre02');assert.equal(report.saves[0].inputChecksum,'35f0eca7');
+    assert.deepEqual(report.missingCompanions,{folders:['Unknown'],files:[]});
+    assert.equal(report.saves[0].mapId,'undeadre99');assert.equal(report.saves[0].inputChecksum,'35f0eca7');
     assert.equal(report.saves[0].build,7003);assert.equal(report.saves[0].status,'unsupported');
     assert.equal(report.saves[0].outputFile,null);assert.equal(report.saves[0].outputChecksum,null);
     assert.equal(messages.some(message=>message.type==='exported'),false,'Report download must not permit unsupported conversion');
@@ -71,7 +74,7 @@ test('blocked revisions retain validated metadata for reports; corrupt container
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?blocked-report');
-    const unknown=fixture(PROFILE.maps[0],'11223344').data;
+    const unknown=fixture(PROFILE.maps[0],'11223344',6999).data;
     const corrupt=unknown.slice();corrupt[60]^=1;
     for(const [data,checksum] of [[unknown,'11223344'],[corrupt,null]]){
       const file=new File([data],'save.w3z');Object.defineProperty(file,'webkitRelativePath',{value:'ForsakenKingdom/save.w3z'});
@@ -82,7 +85,7 @@ test('blocked revisions retain validated metadata for reports; corrupt container
       const report=JSON.parse(await messages.at(-1).blob.text()),row=report.saves[0];
       assert.equal(row.status,'blocked');assert.equal(row.inputChecksum,checksum);assert.equal(row.outputChecksum,null);
       assert.equal(row.mapPath,checksum?'Campaign\\ForsakenKingdom\\undeadre01.w3xd':null);
-      assert.equal(row.build,checksum?7000:null);
+      assert.equal(row.build,checksum?6999:null);
     }
     assert.equal(messages.some(message=>message.type==='exported'),false);
   }finally{delete globalThis.self;}

@@ -1,7 +1,8 @@
 # Forsaken Save Repair
 
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
-the supported Act One locations, patch 3.0.0 → 3.0.1 (build 24342)**. Select the complete campaign
+all acts and the separate prologue, targeting patch 3.0.1 (build 24342)**. Use
+pre-update saves. Select the complete campaign
 folder, pick one checkpoint, and download its repaired bundle. Folder selection
 is the only input workflow; repaired bundles download as ZIP files.
 
@@ -12,9 +13,10 @@ this repository and its Actions artifacts.
 
 ## Supported repair
 
-The initial profile contains exact, verified old/current checksum pairs for
-Undercity (including Trade Quarter), Capital City Ruins, and Tirisfal Glades.
-Trade Quarter uses the same map identity as Undercity. It updates the encoded
+The profile contains archive-derived target checksums for all 20 installed maps.
+The initial old/current observations for Undercity (including Trade Quarter),
+Capital City Ruins, and Tirisfal Glades remain recorded for provenance.
+Trade Quarter uses the same map identity as Undercity. The repair updates the encoded
 settings identity and the plain map-checksum field, retains the original save
 build and gameplay payload, recompresses only the first block for the identity
 repair, and rebuilds the container integrity checksums.
@@ -29,13 +31,15 @@ Main-save loading, travel between all three maps, and saving again in Undercity
 were confirmed by a player, including travel to Trade Quarter. The player also
 reported a successful `beforebaron` playtest after reverting to checksum-only
 browser exports. These are recovered playthroughs, not proof that
-every campaign script is compatible. Other maps have archive-derived target
-checksums but still need source-format validation and game tests before they can
-be enabled. The tool does **not** port saved quest or
-item-drop scripts. Unknown checksums for a supported map block export rather
-than guessing. Unsupported companion map checksums remain unchanged and are
-identified in the report. Unsupported main
-saves remain ineligible for conversion.
+every campaign script is compatible. Additional maps are enabled for checksum
+conversion and remain untested in game. The tool does **not** port saved quest or
+item-drop scripts. On a recognized map, a validated save with any non-target
+checksum is updated to that map's extracted 3.0.1 checksum; the source patch
+cannot be inferred from the save serialization build. Use pre-3.0.1 saves only.
+Later patches are unsupported. Unrecognized maps remain unchanged and are
+identified in the report; unrecognized main maps cannot be exported as repaired
+checkpoints. Invalid containers, mismatched identities and unrecognized save
+formats still block conversion.
 
 Select the `ForsakenKingdom` folder. The worker lists main save filenames using
 metadata only; the collection's total size is not subject to the processing cap.
@@ -79,12 +83,13 @@ The local extraction used the MIT
 [w3xd-toolkit reader](https://github.com/mythic-p/w3xd-toolkit); no reader code,
 game archives, license material or save content is distributed with the site.
 
-Target lookup supplies report metadata only: unsupported files remain unchanged,
-and the exact repair profile still governs conversion. A source save supplies its
-own old checksum, so one old donor per map is not inherently required once the
-target calculation is verified. Accepting additional source revisions still needs
-a defined compatibility policy and loading/travel tests. Newly derived targets
-must not be described as game-tested maps.
+The profile now enables all targets for the validated game identifier/version
+and serialization builds 7000 and 7003. A source save supplies its own checksum;
+it need not appear in the observed-old table. Reports distinguish
+`sourceRevisionKnown` (checksum previously observed or already current) and
+`mapGameTested` (actual player validation). These fields do not claim the source
+patch or future-patch compatibility. Newly covered maps must not be described as
+game-tested. Unknown maps stay byte-identical.
 
 The supported main filename receives `_repaired`, with `_repaired_2`,
 `_repaired_3`, etc. to avoid existing filenames. Already suffixed main filenames
@@ -103,8 +108,8 @@ the browser export's naming and preserved paths are checked programmatically.
 Large bundles are processed file by file, with one expanded save block in
 memory at a time. Each selected checkpoint bundle is limited to 1 GB and 5,000
 files; the whole folder can be larger. Duplicate paths, traversal paths,
-corrupt containers, and unknown supported-map
-revisions are rejected. The downloaded ZIP uses stored entries because game
+corrupt containers, mismatched identity records and unrecognized save formats
+are rejected. The downloaded ZIP uses stored entries because game
 saves are already compressed.
 
 ## Develop and test
@@ -129,6 +134,11 @@ reference discovery and subset export against a real campaign folder. Unit
 checks also use multi-gigabyte file metadata with reads forbidden to verify that
 unselected saves are not loaded. No real saves are committed or uploaded.
 
+For additional private Act Two/prologue native controls, set
+`FORSAKEN_ALL_MAP_CONTROLS` to their local manifest before running tests. These
+checks compare all first-block gameplay bytes, preserved save headers and
+untouched compressed blocks; they do not constitute game playtests.
+
 ## GitHub Pages
 
 Push this repository to `XPlay1990/forsaken-save-repair`. In Settings → Pages,
@@ -141,12 +151,10 @@ URL such as `https://xplay1990.github.io/forsaken-save-repair/`.
 The development checklist lives in `todo.md`, which is excluded from the
 published site. The user interface focuses on bundle selection, prominent
 folder-location guidance (including OneDrive), and upload/restore instructions.
-Arcane Sanctuary
-(`UndeadRE01_05`) has a verified 3.0.1 reference checksum, but its 3.0.0 checksum
-is still missing, so it is named in results and preserved unchanged. Remaining
-Act One areas and Acts Two and Three are pending. The display label for an
-unsupported map never enables a repair; only verified old/current pairs in
-`src/profiles.mjs` do. Unsupported companions remain byte-identical.
+All installed targets, including Arcane Sanctuary, Cathedral, Silverpine Sprint,
+Acts Two/Three and the prologue, are enabled. Outstanding work is actual-game
+validation of newly covered areas. A naming label alone never supplies a target;
+the checksum registry and validated format govern conversion.
 
 `src/map-catalog.mjs` inventories the 20 installed campaign maps in build
 3.0.1.24342: 15 Forsaken Kingdom maps and five maps for the separate prologue,
@@ -160,12 +168,13 @@ an identically named file in another campaign.
 The Warcraft-inspired theme uses original SVG stone texture, a citadel
 silhouette, and a bronze crest; it includes no extracted game artwork.
 
-Extend the profile registry only with same-map current-patch donor checksums,
-verified serialization layouts, and matching old revisions. Keep the repair
-engine separate from profile data. Add native-zlib fixtures and independent
-real-save comparisons, then confirm direct loading, inter-map travel, and a
-new save in the actual game. Do not reuse an Act One checksum for another map
-or infer checksums from the encrypted `.w3xd` archive.
+For a future patch, authenticate/decrypt its installed maps and verify the
+engine's checksum calculation against several fresh same-map donors before
+changing targets. Revalidate serialization layouts, native-zlib fixtures and
+independent real-save comparisons. Confirm loading, inter-map travel and saving
+in game; keep untested areas explicitly identified. Never substitute the raw
+encrypted archive CRC32 for the engine's map checksum or reuse another map's
+target. Keep the repair engine separate from profile data.
 
 Format/recovery provenance:
 

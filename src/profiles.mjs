@@ -1,23 +1,28 @@
-/** Registry is deliberately limited to exact map/revision pairs verified locally. */
 import {knownMap} from './map-catalog.mjs';
+import {MAP_CHECKSUMS} from './map-checksums.mjs';
+
+// Target validated pre-update saves at the installed 3.0.1 campaign maps.
+// Old observations document provenance, rather than an exhaustive allowlist.
+// A checksum repair does not port saved scripts.
+const initial=['undeadre01','undeadre01_02','undeadre01_03'];
+const targets=[...initial.map(id=>MAP_CHECKSUMS.find(map=>map.id===id)),
+  ...MAP_CHECKSUMS.filter(map=>!initial.includes(map.id))];
 export const PROFILE = Object.freeze({
-  id: 'forsaken-act1-300-to-301',
-  name: 'Forsaken Kingdom · Act One',
-  from: '3.0.0', to: '3.0.1', build: '24342',
+  id:'forsaken-all-maps-to-301',name:'Forsaken Kingdom · All maps',
+  from:'pre-3.0.1',to:'3.0.1',build:'24342',
+  sourcePolicy:'Validated campaign save format; every non-target checksum is replaced with the archive-derived 3.0.1 target. Source patch cannot be inferred from the serialization build.',
   serializationBuilds: [7000, 7003],
   gameIdentifier: 0x57335850, gameVersion: 10200,
-  verification: 'Player confirmed loading and travel between the supported areas, saving again in Undercity, and a successful checksum-only beforebaron playtest.',
-  maps: [
-    {id: 'undeadre01', name: 'Undercity / Trade Quarter', old: 'd14c260a', current: '3c2f7a2e'},
-    {id: 'undeadre01_02', name: 'Capital City Ruins', old: '5035caa4', current: '9ef8ba27'},
-    {id: 'undeadre01_03', name: 'Tirisfal Glades', old: 'aa301d70', current: '990b99db'}
-  ]
+  verification:'All 20 targets derived from authenticated 3.0.1 archives; six matched fresh-save donors. Player tested loading/travel in Undercity including Trade Quarter, Capital City Ruins and Tirisfal Glades, resaving and the checksum-only beforebaron export. Other areas remain untested in game.',
+  maps:Object.freeze(targets.map(target=>Object.freeze({...target,
+    name:target.id==='undeadre01'?'Undercity / Trade Quarter':knownMap(target.mapPath).name,
+    old:target.oldObserved})))
 });
 export function mapProfile(path) {
   const normalized = path.toLowerCase().replaceAll('\\', '/');
-  return PROFILE.maps.find(map => normalized === `campaign/forsakenkingdom/${map.id}.w3xd`);
+  return PROFILE.maps.find(map => map.mapPath === normalized);
 }
-// A display label supplies no checksum pair and cannot enable conversion.
+// A display label alone cannot enable conversion.
 export function unsupportedMapName(path){
   return knownMap(path)?.name;
 }
