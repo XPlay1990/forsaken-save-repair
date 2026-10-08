@@ -28,18 +28,18 @@ than guessing. Other acts are copied unchanged and identified in the report.
 Select the `ForsakenKingdom` folder. The worker lists main save filenames using
 metadata only; the collection's total size is not subject to the processing cap.
 Pick a checkpoint to read just its main save and associated `Blizzard` folder.
-The worker scans expanded save blocks for original companion-folder references,
-including references split across block boundaries. These references take
-precedence over the main filename, so renamed checkpoints can still find their
-original snapshots. Companion snapshots can reference older snapshot folders;
-those dependencies are followed recursively with cycle detection. Missing
-referenced files are disclosed even if their containing folder exists.
-Filename association (including removal of a recovery
-suffix) is a fallback when no stored references were found. Missing companions
+The matching `Blizzard/<save-name>/` folder is selected, with an original-name
+fallback for `_repaired` filenames. If neither folder exists, the selected main
+save's stored paths can identify one original companion folder. Ambiguous
+fallbacks stop conversion rather than including multiple checkpoints.
+Companion snapshots may contain older folder names in their saved state;
+those strings do not expand the selection into other checkpoint folders.
+Missing referenced files within the selected companion folder are disclosed.
+Missing companions
 are disclosed before allowing a partial download. Unsupported main saves cannot
 be exported as repaired checkpoints.
 
-The selected ZIP contains the main save, its linked companions, and a repair report,
+The selected ZIP contains the main save, its own companion folder, and a repair report,
 ready to extract into the existing campaign folder. Other checkpoints, global
 cache files and `Blizzard/Zones` are excluded. Working Zones may represent a
 different checkpoint; loading a checkpoint restores its own snapshots.

@@ -55,7 +55,7 @@ try{
     assert.match(downloaded.suggestedFilename(),/^after_baron_repaired_\d+-bundle.zip$/,'Output must avoid the existing repaired save');
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
-    assert.equal(report.checkpoint.path,selectedPath);assert.ok(report.checkpoint.companionCount>=3);
+    assert.equal(report.checkpoint.path,selectedPath);assert.equal(report.checkpoint.companionCount,3);
     const mainOutput=report.renamed.find(item=>item.from===selectedPath).to;
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
     const sourceMain=new Uint8Array(await readFile(path.join(campaign,'after_baron.w3z'))),sourceInfo=inspectSave(sourceMain),outInfo=inspectSave(converted[mainOutput]);
@@ -63,16 +63,26 @@ try{
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
     assert.equal(snapshots.length,report.checkpoint.companionCount);
-    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/'),'Unrelated main checkpoint leaked into export');
+    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron/'),'Another checkpoint folder leaked into export');
     assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
     await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
+    await page.locator('#save-search').fill('beforebaron');
+    const before=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^beforebaron$/})});
+    if(await before.count()){
+      await before.click();await page.locator('#results').waitFor({state:'visible',timeout:120000});
+      assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+      assert.match(await page.locator('#stats').textContent(),/1 checkpoint \+ 3 companion saves/);
+      const rows=await page.locator('#file-list .file-path').allTextContents();
+      assert.equal(rows.length,4);assert.ok(rows.every(name=>name.endsWith('/beforebaron.w3z')||name.includes('/Blizzard/beforebaron/')));
+      await page.locator('#another-save').click();
+    }
     await page.locator('#save-search').fill('Act Two - Undercity');
     const unsupported=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^Act Two - Undercity$/})});
     if(await unsupported.count()){
       await unsupported.click();await page.locator('#error').waitFor({state:'visible',timeout:120000});
       assert.match(await page.locator('#error').textContent(),/not supported/);assert.equal(await page.locator('#export').isEnabled(),false);
     }
-    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: one checkpoint and its ${snapshots.length} linked snapshots exported; existing names respected; search, unsupported-save blocking and offline automatic download passed.`);
+    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron and beforebaron scopes checked; existing names, search, unsupported-save blocking and offline download passed.`);
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

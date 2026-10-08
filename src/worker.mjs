@@ -42,7 +42,7 @@ async function analyzeCheckpoint(path){
     cached.set(entry.path,inspection?{inspection:publicResult(inspection,entry.path,entry.blob.size)}:{inspectionError});
     return scanner;
   },{maxBytes:MAX_BYTES,maxFiles:MAX_FILES});
-  selection={path,companionCount:bundle.companionCount,missingFolders:bundle.missingFolders,missingFiles:bundle.missingFiles};
+  selection={path,companionFolder:bundle.companionFolder,companionCount:bundle.companionCount,missingFolders:bundle.missingFolders,missingFiles:bundle.missingFiles};
   entries=bundle.entries;
   await analyzeEntries(cached);
 }

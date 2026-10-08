@@ -26,38 +26,31 @@ export function checkpointBundle(inventory,path,references=[],requiredFiles=[]){
   const main=inventory.find(entry=>entry.path===path);
   if(!main)throw Error('This save is no longer in the selected folder.');
   const parent=path.slice(0,path.lastIndexOf('/')+1),stem=path.split('/').at(-1).slice(0,-4);
-  const available=folder=>inventory.some(entry=>entry.path.toLowerCase().startsWith(`${parent}Blizzard/${folder}/`.toLowerCase()));
-  const referenced=Array.from(references).filter(folder=>!/^zones$/i.test(folder));
-  const missingFolders=referenced.filter(folder=>!available(folder));
-  const knownPaths=new Set(inventory.map(entry=>entry.path.toLowerCase()));
-  const missingFiles=Array.from(requiredFiles).filter(relative=>!knownPaths.has((parent+relative).toLowerCase()));
-  let folders=referenced.filter(available);
-  if(!referenced.length){
-    // Filename association covers normal saves and earlier recovery filenames.
-    const original=stem.replace(/_repaired(?:_\d+)?$/i,'');
-    const folder=available(stem)?stem:available(original)?original:null;
-    if(folder&&!/^zones$/i.test(folder))folders=[folder];
+  const available=folder=>!/^zones$/i.test(folder)&&inventory.some(entry=>entry.path.toLowerCase().startsWith(`${parent}Blizzard/${folder}/`.toLowerCase()));
+  const original=stem.replace(/_repaired(?:_\d+)?$/i,'');
+  let folder=available(stem)?stem:available(original)?original:null;
+  // Read saved paths only as a fallback for an arbitrarily renamed main save.
+  // Strings inside companion snapshots are not evidence of live dependencies.
+  if(!folder){
+    const candidates=Array.from(new Map(Array.from(references).filter(available).map(folder=>[folder.toLowerCase(),folder])).values());
+    if(candidates.length>1)throw Error('Could not identify one companion folder for this renamed save.');
+    folder=candidates[0]||null;
   }
-  const prefixes=folders.map(folder=>`${parent}Blizzard/${folder}/`.toLowerCase());
-  const companions=inventory.filter(entry=>prefixes.some(prefix=>entry.path.toLowerCase().startsWith(prefix)));
-  return {entries:[main,...companions],missingFolders,missingFiles,companionCount:companions.filter(entry=>entry.path.toLowerCase().endsWith('.w3z')).length};
+  const prefix=folder?`${parent}Blizzard/${folder}/`.toLowerCase():null;
+  const companions=prefix?inventory.filter(entry=>entry.path.toLowerCase().startsWith(prefix)):[];
+  const knownPaths=new Set(inventory.map(entry=>entry.path.toLowerCase()));
+  const missingFiles=prefix?Array.from(requiredFiles).filter(relative=>(parent+relative).toLowerCase().startsWith(prefix)&&!knownPaths.has((parent+relative).toLowerCase())):[];
+  return {entries:[main,...companions],companionFolder:folder?`${parent}Blizzard/${folder}`:null,
+    missingFolders:folder?[]:[original],missingFiles,companionCount:companions.filter(entry=>entry.path.toLowerCase().endsWith('.w3z')).length};
 }
 
 export async function resolveCheckpointBundle(inventory,path,readReferences,{maxBytes=1024**3,maxFiles=5000}={}){
   const main=inventory.find(entry=>entry.path===path);
   if(!main)throw Error('Select a save from the list.');
-  const entries=[main],seen=new Set([path]),missingFolders=new Set(),missingFiles=new Set();let bytes=main.blob.size;
-  const withinLimit=()=>{if(bytes>maxBytes)throw Error('This checkpoint and its linked companions exceed 1 GB. Choose another save.');if(entries.length>maxFiles)throw Error('This checkpoint contains too many linked files.');};
-  withinLimit();
-  for(let i=0;i<entries.length;i++){
-    const entry=entries[i];if(!entry.path.toLowerCase().endsWith('.w3z'))continue;
-    const refs=await readReferences(entry);
-    if(i!==0&&!refs.folders.size)continue;
-    const bundle=checkpointBundle(inventory,path,refs.folders,refs.files);
-    for(const folder of bundle.missingFolders)missingFolders.add(folder);
-    for(const file of bundle.missingFiles)missingFiles.add(file);
-    for(const linked of bundle.entries){if(seen.has(linked.path))continue;seen.add(linked.path);entries.push(linked);bytes+=linked.blob.size;}
-    withinLimit();
-  }
-  return {entries,companionCount:entries.filter(entry=>entry!==main&&entry.path.toLowerCase().endsWith('.w3z')).length,missingFolders:Array.from(missingFolders),missingFiles:Array.from(missingFiles)};
+  const withinLimit=entries=>{if(entries.reduce((sum,entry)=>sum+entry.blob.size,0)>maxBytes)throw Error('This checkpoint and its companions exceed 1 GB. Choose another save.');if(entries.length>maxFiles)throw Error('This checkpoint contains too many files.');};
+  withinLimit([main]);
+  const refs=await readReferences(main);
+  const bundle=checkpointBundle(inventory,path,refs.folders,refs.files);
+  withinLimit(bundle.entries);
+  return bundle;
 }
