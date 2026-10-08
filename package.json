@@ -8,6 +8,11 @@
     "test": "node --test tests/*.test.mjs",
     "start": "node scripts/serve.mjs"
   },
-  "dependencies": {"fflate": "0.8.2", "pako": "2.1.0"},
-  "devDependencies": {"playwright": "1.56.1"}
+  "dependencies": {
+    "fflate": "0.8.3",
+    "pako": "2.1.0"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  }
 }
