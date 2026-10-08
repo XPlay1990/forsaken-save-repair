@@ -1,78 +1,42 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <meta name="description" content="Repair Forsaken Kingdom save bundles locally in your browser. Find your campaign folder, select it or a ZIP, and download repaired saves.">
-  <meta name="theme-color" content="#101714">
-  <title>Forsaken Save Repair</title>
-  <link rel="icon" href="./mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
-  <script type="module" src="./app.mjs"></script>
+  <meta name="description" content="Choose your Forsaken Kingdom folder, pick a save, and download its repaired checkpoint and companions. All processing stays in your browser.">
+  <meta name="theme-color" content="#101714"><title>Forsaken Save Repair</title>
+  <link rel="icon" href="./mark.svg" type="image/svg+xml"><link rel="stylesheet" href="./styles.css"><script type="module" src="./app.mjs"></script>
 </head>
 <body>
   <div class="page-grain" aria-hidden="true"></div>
-  <header class="masthead">
-    <a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a>
-    <div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div>
-  </header>
+  <header class="masthead"><a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a><div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div></header>
   <main>
-    <section class="intro" aria-labelledby="title">
-      <p class="eyebrow">FORSAKEN KINGDOM · ACT ONE · 3.0.0 → 3.0.1</p>
-      <h1 id="title">Reclaim your progress.</h1>
-      <p>Select your campaign folder or a ZIP. The repair runs entirely in your browser.</p>
-    </section>
-    <section class="workspace" aria-label="Repair your save bundle">
+    <section class="intro" aria-labelledby="title"><p class="eyebrow">FORSAKEN KINGDOM · ACT ONE · 3.0.0 → 3.0.1</p><h1 id="title">Reclaim your progress.</h1><p>Choose your folder. Pick a save. Get back to playing.</p></section>
+    <section class="workspace" aria-label="Repair a checkpoint">
       <div class="work-panel">
-        <div class="panel-heading"><span class="step-number">01</span><h2>Upload your bundle</h2><button type="button" class="text-button" id="clear" hidden>Start again</button></div>
-        <div class="bundle-location" id="bundle-location">
-          <h3>Where to find your saves</h3>
-          <p>Open <strong>Documents</strong> in File Explorer, then follow this path:</p>
-          <code class="folder-path">Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code>
-          <p class="location-tip">If your Documents folder is in <strong>OneDrive</strong>, use that folder. Choose your BattleNet account-number folder, then the entire <strong>ForsakenKingdom</strong> folder.</p>
-        </div>
+        <div class="panel-heading"><span class="step-number" id="step-number">01</span><h2 id="step-label">Choose your folder</h2><button type="button" class="text-button" id="clear" hidden>Change folder</button></div>
+        <div class="bundle-location" id="bundle-location"><h3>Find your campaign folder</h3><code class="folder-path">Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code><p class="location-tip">Open <strong>Documents</strong> in File Explorer. If it's in <strong>OneDrive</strong>, look there.</p></div>
         <div class="drop-zone" id="drop-zone">
           <svg class="bundle-icon" viewBox="0 0 76 68" fill="none" aria-hidden="true"><path d="M8 21h60v39H8zM8 21V9h23l8 12" stroke="currentColor" stroke-width="1.5"/><path d="M24 32h28v18H24zM31 41h14M38 34v14" stroke="currentColor" stroke-width="1.5"/></svg>
-          <h3>Select the entire campaign folder</h3>
-          <p>Include the <code>Blizzard</code> folder, all <code>.w3z</code> saves, and the campaign cache files.</p>
-          <div class="picker-actions"><button type="button" id="folder-button" class="button primary">Choose folder <span aria-hidden="true">↗</span></button><button type="button" id="zip-button" class="button secondary">Choose ZIP</button></div>
-          <p class="drop-hint">Or drop a ZIP here · Up to 1 GB</p>
-          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder" aria-describedby="bundle-location">
-          <input type="file" id="zip-input" accept=".zip,application/zip" hidden aria-label="Select zipped campaign bundle" aria-describedby="bundle-location">
+          <div class="picker-actions"><button type="button" id="folder-button" class="button primary">Choose ForsakenKingdom folder ↗</button></div>
+          <p>Pick one save next. Its companion files are found automatically.</p>
+          <details class="zip-option"><summary>Have a ZIP instead?</summary><button type="button" id="zip-button" class="button secondary">Choose ZIP</button><p class="drop-hint">Whole-ZIP repair · Up to 1 GB</p></details>
+          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder" aria-describedby="bundle-location"><input type="file" id="zip-input" accept=".zip,application/zip" hidden aria-label="Select zipped campaign bundle">
         </div>
-        <div class="progress-area" id="progress-area" hidden>
-          <div class="progress-top"><p id="progress-message" role="status" aria-live="polite">Checking your files…</p><button id="cancel" class="text-button" type="button">Cancel</button></div>
-          <progress id="progress" max="100" value="0" aria-label="Bundle processing progress"></progress>
-        </div>
+        <div id="save-picker" hidden><label class="search-label" for="save-search">Your checkpoints</label><input id="save-search" class="save-search" type="search" placeholder="Find a save…" autocomplete="off"><ul id="checkpoint-list" class="checkpoint-list"></ul><p id="no-search-results" hidden>No matching saves.</p></div>
+        <div class="progress-area" id="progress-area" hidden><div class="progress-top"><p id="progress-message" role="status" aria-live="polite">Checking…</p><button id="cancel" class="text-button" type="button">Cancel</button></div><progress id="progress" max="100" value="0" aria-label="Processing progress"></progress></div>
         <div class="notice error" id="error" role="alert" hidden></div>
         <div class="results" id="results" hidden>
-          <div class="panel-heading results-heading"><span class="step-number">02</span><h2>Your bundle</h2><span class="file-count" id="file-count"></span></div>
-          <div class="result-stats" id="stats"></div>
-          <div class="notice warning" id="unsupported-note" hidden></div>
-          <div class="notice warning" id="missing-note" hidden></div>
-          <label class="acknowledge" id="missing-ack-wrap" hidden><input type="checkbox" id="missing-ack"> I understand that missing companion saves may prevent travel.</label>
+          <div class="selection-summary"><p id="stats"></p><span id="file-count" class="file-count"></span></div>
+          <div class="notice warning" id="unsupported-note" hidden></div><div class="notice warning" id="missing-note" hidden></div>
+          <label class="acknowledge" id="missing-ack-wrap" hidden><input type="checkbox" id="missing-ack"> Download with the available files</label>
           <details class="file-details"><summary>File details <span id="checked-count"></span></summary><ul id="file-list" class="file-list"></ul></details>
-          <p class="repair-limit">Main saves receive <code>_repaired</code>. Keep companion folders and filenames as they are when restoring.</p>
-          <button type="button" class="button primary export-button" id="export" disabled>Repair &amp; download ZIP <span aria-hidden="true">↓</span></button>
+          <button type="button" class="button primary export-button" id="export" disabled>Repair &amp; download ↓</button>
         </div>
-        <div class="success" id="success" hidden>
-          <p class="eyebrow">BUNDLE READY</p><h2>Your progress, packed.</h2><p id="success-copy"></p>
-          <a id="download" class="button primary" download="ForsakenKingdom-repaired.zip">Download repaired ZIP <span aria-hidden="true">↓</span></a>
-          <p class="download-note">Your original files were not changed.</p>
-        </div>
+        <div class="success" id="success" hidden><h2>Ready to play.</h2><p id="success-copy"></p><a id="download" class="text-button" download="ForsakenKingdom-repaired.zip">Download again ↓</a></div>
+        <button id="another-save" class="text-button another-save" type="button" hidden>Choose another save</button>
       </div>
-      <aside class="instructions-panel" aria-labelledby="instructions-title">
-        <div class="panel-heading"><span class="step-number">?</span><h2 id="instructions-title">How to use it</h2></div>
-        <ol class="instruction-list">
-          <li><h3>Close the game &amp; back up</h3><p>Copy your entire <code>ForsakenKingdom</code> folder somewhere safe before you begin.</p></li>
-          <li><h3>Choose folder or ZIP</h3><p>Select the whole campaign folder. To use a ZIP, right-click the folder in File Explorer and choose <strong>Compress to ZIP file</strong> or <strong>Send to → Compressed (zipped) folder</strong>.</p></li>
-          <li><h3>Repair &amp; download</h3><p>Check the result, then download the repaired ZIP. Your saves stay on your computer throughout.</p></li>
-          <li><h3>Restore the bundle</h3><p>Extract the ZIP, then copy its contents into your original <code>ForsakenKingdom</code> folder. Include <code>Blizzard</code> and keep the directory structure. Companion saves and cache files may replace existing files.</p></li>
-          <li><h3>Load a _repaired save</h3><p>Open Warcraft III, load your repaired checkpoint, and try travelling between locations. Confirm your progress, then save again.</p></li>
-        </ol>
-        <p class="instruction-footnote">Use the complete folder: each visited location can have its own companion save. This tool repairs patch compatibility; some saves or gameplay changes may still be unsupported.</p>
-      </aside>
+      <aside class="instructions-panel" aria-labelledby="instructions-title"><div class="panel-heading"><h2 id="instructions-title">After the download</h2></div><ol class="instruction-list"><li><h3>Close Warcraft III</h3><p>Back up your campaign folder.</p></li><li><h3>Extract &amp; copy back</h3><p>Copy the repaired save and <code>Blizzard</code> folder into <code>ForsakenKingdom</code>. Keep their folder paths; companion files may be replaced.</p></li><li><h3>Load the _repaired save</h3><p>Try travelling between locations, then save again.</p></li></ol></aside>
     </section>
   </main>
   <footer><span>Unofficial community recovery tool.</span><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>

@@ -2,7 +2,8 @@
 
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
 the three verified Act One maps, patch 3.0.0 → 3.0.1 (build 24342)**. Select the complete campaign
-folder or a ZIP, inspect the files, and download a repaired bundle.
+folder, pick one checkpoint, and download its repaired bundle. A ZIP is also
+supported as an optional whole-bundle workflow.
 
 All save processing runs in a Web Worker on the player's computer. No save
 uploads, telemetry, account login, remote APIs, CDN assets, or persistent storage
@@ -24,8 +25,25 @@ verified donors before they can be added. The tool does **not** port saved quest
 item-drop scripts. Unknown checksums for a supported map block export rather
 than guessing. Other acts are copied unchanged and identified in the report.
 
-Select the entire `ForsakenKingdom` folder: visited areas have companion saves
-inside `Blizzard`, and the working copies in `Blizzard/Zones` matter too.
+Select the `ForsakenKingdom` folder. The worker lists main save filenames using
+metadata only; the collection's total size is not subject to the processing cap.
+Pick a checkpoint to read just its main save and associated `Blizzard` folder.
+The worker scans expanded save blocks for original companion-folder references,
+including references split across block boundaries. These references take
+precedence over the main filename, so renamed checkpoints can still find their
+original snapshots. Companion snapshots can reference older snapshot folders;
+those dependencies are followed recursively with cycle detection. Missing
+referenced files are disclosed even if their containing folder exists.
+Filename association (including removal of a recovery
+suffix) is a fallback when no stored references were found. Missing companions
+are disclosed before allowing a partial download. Unsupported main saves cannot
+be exported as repaired checkpoints.
+
+The selected ZIP contains the main save, its linked companions, and a repair report,
+ready to extract into the existing campaign folder. Other checkpoints, global
+cache files and `Blizzard/Zones` are excluded. Working Zones may represent a
+different checkpoint; loading a checkpoint restores its own snapshots. The
+optional whole-ZIP workflow retains all input files and relative paths.
 Supported main saves receive `_repaired` before `.w3z`. Already suffixed
 checkpoints keep their names; collisions use `_repaired_2`, `_repaired_3`, etc.
 Unsupported main saves retain their names. All name changes appear in the
@@ -35,13 +53,16 @@ their paths: inspected saves contain serialized references such as
 gameplay-payload changes beyond the verified checksum repair.
 Close the game, back up the entire campaign folder, and extract the output into
 the original folder. Main checkpoint files can sit alongside their originals,
-but companion snapshots and campaign cache retain their paths and may replace
-existing files. Load a `_repaired` checkpoint and test travel before saving under
+but companion snapshots retain their paths and may replace existing files.
+Filename collision checks include unselected checkpoints in the chosen folder.
+Load a `_repaired` checkpoint and test travel before saving under
 a new name. Renamed main saves were used during the recovered playthrough;
 the browser export's naming and preserved paths are checked programmatically.
 
 Large bundles are processed file by file, with one expanded save block in
-memory at a time. A bundle is limited to 1 GB and 5,000 files. ZIP64, encryption,
+memory at a time. Each selected checkpoint bundle is limited to 1 GB and 5,000
+files; the whole folder can be larger. Whole-ZIP input is still limited to 1 GB.
+ZIP64, encryption,
 duplicate paths, traversal paths, corrupt containers, and unknown supported-map
 revisions are rejected. The downloaded ZIP uses stored entries because game
 saves are already compressed.
@@ -62,7 +83,11 @@ Open http://127.0.0.1:4173. `dist/` is the self-contained deployable site.
 For private, local verification against real saves and the independently
 generated Python repair, the environment variable `FORSAKEN_RECOVERY_ROOT`
 should point to the workshop's local recovery
-output folder. Then run `npm test`. No real saves are committed or uploaded.
+output folder. Then run `npm test`. The local browser check accepts
+`FORSAKEN_CAMPAIGN_ROOT` to verify folder listing, checkpoint selection, original
+reference discovery and subset export against a real campaign folder. Unit
+checks also use multi-gigabyte file metadata with reads forbidden to verify that
+unselected saves are not loaded. No real saves are committed or uploaded.
 
 ## GitHub Pages
 

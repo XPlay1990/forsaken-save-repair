@@ -49,8 +49,9 @@ try{
     assert.equal(await page.locator('#export').isEnabled(),true);
     await page.screenshot({path:path.join(output,'checked.png'),fullPage:true});
     await context.setOffline(true);
+    const downloadPromise=page.waitForEvent('download');
     await page.locator('#export').click();await page.locator('#success').waitFor({state:'visible',timeout:120000});
-    const downloadPromise=page.waitForEvent('download');await page.locator('#download').click();const download=await downloadPromise;
+    const download=await downloadPromise;
     const destination=path.join(output,'converted.zip');await download.saveAs(destination);
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     for(const name of ['UndeadRE01.w3z','UndeadRE01_02.w3z','UndeadRE01_03.w3z']){
@@ -63,12 +64,10 @@ try{
     assert.equal(converted['ForsakenKingdom/checkpoint.w3z'],undefined);
     assert.deepEqual(converted['ForsakenKingdom/Blizzard/checkpoint/notes.txt'],input['ForsakenKingdom/Blizzard/checkpoint/notes.txt']);
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));assert.equal(report.changed.length,5);assert.equal(report.renamed.length,1);
-    assert.match(await page.locator('#success-copy').textContent(),/1 main save renamed/);
+    assert.match(await page.locator('#success-copy').textContent(),/Download started/);
     await context.setOffline(false);await page.locator('#clear').click();
     await page.locator('#folder-input').setInputFiles(path.join(recovery,'pre-install-backup','Blizzard','after_patch_Undercity'));
-    await Promise.race([page.locator('#results').waitFor({state:'visible',timeout:120000}),page.locator('#error').waitFor({state:'visible',timeout:120000}).then(async()=>{throw Error(await page.locator('#error').textContent());})]);
-    assert.equal(await page.locator('#file-list li').count(),3,'Folder picker did not include all companions');assert.equal(await page.locator('#export').isEnabled(),true);
-    await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Results overflow at 320 px');await page.setViewportSize({width:1440,height:1080});
+    await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/main .w3z saves/);
     await page.locator('#clear').click();
     const malicious=zipSync({'../bad.w3z':new Uint8Array([1,2,3])});await page.locator('#zip-input').setInputFiles({name:'bad.zip',mimeType:'application/zip',buffer:Buffer.from(malicious)});
     await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/Unsafe/);assert.equal(await page.locator('#export').isEnabled(),false);
@@ -76,6 +75,50 @@ try{
     const badCache=zipSync({'Campaigns.w3v':new Uint8Array([0x61,0x62,0x63])},{level:0});const nameLength=new DataView(badCache.buffer).getUint16(26,true),extraLength=new DataView(badCache.buffer).getUint16(28,true);badCache[30+nameLength+extraLength]^=1;
     await page.locator('#zip-input').setInputFiles({name:'corrupt-cache.zip',mimeType:'application/zip',buffer:Buffer.from(badCache)});await page.locator('#error').waitFor({state:'visible'});assert.match(await page.locator('#error').textContent(),/ZIP integrity/);
     console.log('Browser ZIP conversion: real saves match Python recovery; main checkpoint renamed; original companion paths, Zones names and cache preserved; export works offline; malicious ZIP paths and corrupt cache rejected.');
+  }
+  const campaign=process.env.FORSAKEN_CAMPAIGN_ROOT;
+  if(campaign){
+    await page.locator('#clear').click();
+    await page.locator('#folder-input').evaluate(input=>input.addEventListener('change',()=>{window.testFolderMetadata={bytes:Array.from(input.files).reduce((sum,file)=>sum+file.size,0),files:input.files.length};},{capture:true,once:true}));
+    await page.locator('#folder-input').setInputFiles(campaign);
+    await page.locator('#save-picker').waitFor({state:'visible',timeout:30000});
+    assert.equal(await page.locator('#error').isVisible(),false);
+    const metadata=await page.evaluate(()=>window.testFolderMetadata);
+    assert.ok(metadata.files>10,'Campaign regression requires multiple checkpoints');
+    await page.locator('#save-search').fill('no_such_checkpoint');assert.equal(await page.locator('#no-search-results').isVisible(),true);
+    await page.locator('#save-search').fill('after_baron');
+    const chosen=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^after_baron$/})});
+    const selectedPath=await chosen.getAttribute('data-path');
+    await page.screenshot({path:path.join(output,'save-picker.png'),fullPage:true});
+    await chosen.click();await page.locator('#results').waitFor({state:'visible',timeout:120000});
+    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+    assert.match(await page.locator('#stats').textContent(),/1 checkpoint \+ [1-9]/);
+    assert.equal(await page.locator('#missing-note').isVisible(),false);
+    await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Checkpoint results overflow at 320 px');await page.setViewportSize({width:1440,height:1080});
+    await context.setOffline(true);
+    const checkpointDownload=page.waitForEvent('download');await page.locator('#export').click();
+    const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
+    assert.match(downloaded.suggestedFilename(),/^after_baron_repaired_\d+-bundle.zip$/,'Output must avoid the existing repaired save');
+    const converted=unzipSync(new Uint8Array(await readFile(destination)));
+    const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
+    assert.equal(report.checkpoint.path,selectedPath);assert.ok(report.checkpoint.companionCount>=3);
+    const mainOutput=report.renamed.find(item=>item.from===selectedPath).to;
+    assert.equal(inspectSave(converted[mainOutput]).status,'current');
+    const sourceMain=new Uint8Array(await readFile(path.join(campaign,'after_baron.w3z'))),sourceInfo=inspectSave(sourceMain),outInfo=inspectSave(converted[mainOutput]);
+    assert.deepEqual(converted[mainOutput].subarray(outInfo.firstEnd),sourceMain.subarray(sourceInfo.firstEnd),'Saved reference strings and other compressed blocks changed');
+    assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
+    const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
+    assert.equal(snapshots.length,report.checkpoint.companionCount);
+    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/'),'Unrelated main checkpoint leaked into export');
+    assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
+    await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
+    await page.locator('#save-search').fill('Act Two - Undercity');
+    const unsupported=page.locator('.checkpoint-choice').filter({has:page.locator('span',{hasText:/^Act Two - Undercity$/})});
+    if(await unsupported.count()){
+      await unsupported.click();await page.locator('#error').waitFor({state:'visible',timeout:120000});
+      assert.match(await page.locator('#error').textContent(),/not supported/);assert.equal(await page.locator('#export').isEnabled(),false);
+    }
+    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: one checkpoint and its ${snapshots.length} linked snapshots exported; existing names respected; search, unsupported-save blocking and offline automatic download passed.`);
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

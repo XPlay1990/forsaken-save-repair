@@ -2,11 +2,11 @@ import {assertUniquePaths} from './repair.mjs';
 
 // Serialized saves contain Blizzard/<original checkpoint> references.
 // Only rename main files; retain every companion path and gameplay byte.
-export function planBundleNames(entries,rows){
+export function planBundleNames(entries,rows,{reservedPaths=[]}={}){
   assertUniquePaths(entries);
   const paths=new Map(entries.map(entry=>[entry.path,entry.path]));
   const occupied=new Set();
-  for(const {path} of entries){
+  for(const path of [...entries.map(entry=>entry.path),...reservedPaths]){
     const parts=path.toLowerCase().split('/');
     for(let i=1;i<=parts.length;i++)occupied.add(parts.slice(0,i).join('/'));
   }

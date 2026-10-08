@@ -74,7 +74,7 @@ export function identity(raw){
   return {map,checksum:hex(checksum),decoded,settingsStart:start,settingsEnd:end,plainOffset};
 }
 
-export function inspectSave(input,{onBlock=()=>{}}={}){
+export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input);
   check(data.length>=80&&equal(data.subarray(0,28),SIGNATURE),'This is not a supported Warcraft III save container.');
   check(u32(data,28)===68&&u32(data,36)===1,'Unsupported save container version.');
@@ -93,7 +93,8 @@ export function inspectSave(input,{onBlock=()=>{}}={}){
     check(blockCRC(comp,expanded)===checksum,`Block ${index+1} has an invalid checksum.`);
     if(index===0){
       first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map);firstEnd=pos+12+compressed;
-    }else if(supported){inflateBlock(comp,expanded);}
+      onExpandedBlock(first,index);
+    }else if(supported){onExpandedBlock(inflateBlock(comp,expanded),index);}
     pos+=12+compressed;onBlock(index+1,count);
   }
   check(pos===data.length,'The save contains unexpected trailing data.');
