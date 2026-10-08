@@ -63,6 +63,15 @@ URL such as `https://xplay1990.github.io/forsaken-save-repair/`.
 
 ## Add a later act or patch
 
+The site includes a quest-log roadmap in `src/roadmap.mjs`. Arcane Sanctuary
+(`UndeadRE01_05`) has a verified 3.0.1 reference checksum, but its 3.0.0 checksum
+is still missing, so it is named in results and preserved unchanged. Remaining
+Act One areas and Acts Two and Three are pending. Roadmap metadata never
+enables a repair; only verified old/current pairs in `src/profiles.mjs` do.
+
+The Warcraft-inspired theme uses original SVG stone texture, a citadel
+silhouette, and a bronze crest; it includes no extracted game artwork.
+
 Extend the profile registry only with same-map current-patch donor checksums,
 verified serialization layouts, and matching old revisions. Keep the repair
 engine separate from profile data. Add native-zlib fixtures and independent

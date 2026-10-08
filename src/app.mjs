@@ -1,4 +1,13 @@
+import {ROADMAP} from './roadmap.mjs';
 const $=id=>document.getElementById(id);
+for(const item of ROADMAP){
+  const row=document.createElement('li');row.className=`quest ${item.status}`;row.dataset.quest=item.id;
+  const marker=document.createElement('span');marker.className='quest-marker';marker.textContent=item.status==='complete'?'✓':item.status==='pending'?'!':'◇';marker.setAttribute('aria-hidden','true');
+  const body=document.createElement('div');body.className='quest-body';const act=document.createElement('span');act.className='quest-act';act.textContent=item.act;
+  const title=document.createElement('h3');title.textContent=item.name;const detail=document.createElement('p');detail.textContent=item.detail;body.append(act,title,detail);
+  if(item.mapId){const reference=document.createElement('details');const summary=document.createElement('summary');summary.textContent='Reference captured';const metadata=document.createElement('p');metadata.textContent=`Map: ${item.mapId} · 3.0.1 checksum: ${item.currentChecksum} · 3.0.0 checksum: unknown`;reference.append(summary,metadata);body.append(reference);}
+  const badge=document.createElement('span');badge.className='quest-badge';badge.textContent=item.badge;row.append(marker,body,badge);$('roadmap-list').append(row);
+}
 let worker,stats,downloadURL,busy=false;
 const labels={repair:'Repair',current:'Current',unsupported:'Unchanged',blocked:'Blocked'};
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('The processing worker stopped. Try a smaller bundle or a current desktop browser.');}

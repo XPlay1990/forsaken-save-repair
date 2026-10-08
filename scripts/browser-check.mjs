@@ -15,9 +15,14 @@ page.on('request',req=>requests.push({url:req.url(),method:req.method()}));
 page.on('pageerror',error=>errors.push(error.message));
 page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
 try{
-  await page.goto('http://127.0.0.1:4173/');await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true});
+  await page.goto('http://127.0.0.1:4173/');
+  assert.equal(await page.locator('#roadmap-list .quest').count(),5);
+  assert.match(await page.locator('[data-quest="arcane-sanctuary"]').textContent(),/Old ID missing/);
+  assert.equal(await page.locator('[data-quest="act2"]').count(),1);assert.equal(await page.locator('[data-quest="act3"]').count(),1);
+  await page.screenshot({path:path.join(output,'desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:path.join(output,'mobile.png'),fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Mobile page overflows');
+  await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Small mobile page overflows');
   await page.setViewportSize({width:1440,height:1080});
   const recovery=process.env.FORSAKEN_RECOVERY_ROOT;
   if(recovery){

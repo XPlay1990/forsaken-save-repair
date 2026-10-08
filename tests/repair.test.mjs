@@ -39,6 +39,7 @@ for(const map of PROFILE.maps){
 }
 test('already-current saves are byte-identical',()=>{const source=fixture(PROFILE.maps[0],PROFILE.maps[0].current,7003);assert.deepEqual(repairSave(source.data).data,source.data);});
 test('other acts are identified and preserved unchanged',()=>{const source=fixture({id:'undeadre02',old:'35f0eca7'});assert.equal(inspectSave(source.data).status,'unsupported');assert.deepEqual(repairSave(source.data).data,source.data);});
+test('Arcane Sanctuary roadmap reference never enables a guessed repair',()=>{for(const checksum of ['e3d412fe','11223344']){const source=fixture({id:'undeadre01_05',old:checksum});const inspected=inspectSave(source.data);assert.equal(inspected.status,'unsupported');assert.equal(inspected.mapName,'Arcane Sanctuary');assert.match(inspected.reason,/pre-patch checksum/);assert.deepEqual(repairSave(source.data).data,source.data);}});
 test('unknown checksum on a known map is rejected',()=>assert.throws(()=>repairSave(fixture(PROFILE.maps[0],'11223344').data),/Unrecognized checksum/));
 test('unverified serialization builds are rejected',()=>assert.throws(()=>inspectSave(fixture(PROFILE.maps[0],PROFILE.maps[0].old,6999).data),/build/));
 test('corrupt block and header are rejected',()=>{const source=fixture().data;const bad=source.slice();bad[100]^=1;assert.throws(()=>repairSave(bad),/checksum/);const header=source.slice();header[60]^=1;assert.throws(()=>inspectSave(header),/header checksum/);});
