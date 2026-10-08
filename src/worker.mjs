@@ -10,8 +10,29 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks}=result;
-  return {path,size,map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks};
+  const {map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
+  return {path,size,map,mapId,mapName,checksum,targetChecksum,status,reason,build,blocks,gameIdentifier,gameVersion};
+}
+function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
+  ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
+  const stats=summary(analysis);
+  const saves=analysis.map(row=>({file:row.path,outputFile:exported?paths.get(row.path):null,
+    mapPath:row.map??null,mapId:row.mapId??null,mapName:row.mapName??null,
+    inputChecksum:row.checksum??null,outputChecksum:exported?(row.status==='repair'?row.targetChecksum:row.checksum)??null:null,
+    targetChecksum:row.targetChecksum??null,build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
+    status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null}));
+  return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,
+    scope:'Selected checkpoint only; repair supports Act One',repairMode:'identity-only',folderPathsPreserved:true,
+    created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed,
+    unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
+    missingCompanions:{folders:selection.missingFolders,files:selection.missingFiles},supportedMapsNotInBundle:stats.missing,
+    verification:exported?'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.':'Inspection only. No save files were changed. Null metadata means it could not be verified.',
+    checksumFormat:'Four stored map-checksum bytes in hexadecimal, in byte order. build is the save serialization build, not the installed patch.',
+    privacy:'All processing happened in this browser. This report contains relative filenames and inspection metadata, without gameplay data. No files were sent to a server.'};
+}
+function exportReport(){
+  const metadata=buildReport();
+  send('reported',{blob:new Blob([JSON.stringify(metadata,null,2)],{type:'application/json'}),filename:'forsaken-repair-report.json'});
 }
 function summary(rows){
   const maps=PROFILE.maps.map(map=>({id:map.id,name:map.name,
@@ -60,7 +81,7 @@ async function analyzeEntries(cached=new Map()){
       if(stored?.inspectionError)throw stored.inspectionError;
       const result=stored?.inspection||inspectSave(new Uint8Array(await entry.blob.arrayBuffer()));
       analysis.push(publicResult(result,entry.path,entry.blob.size));
-    }catch(error){analysis.push({path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
+    }catch(error){analysis.push(error.inspection?publicResult(error.inspection,entry.path,entry.blob.size):{path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
     send('row',{row:analysis.at(-1)});
   }
   const {renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
@@ -101,10 +122,7 @@ async function exportBundle(){
     }
     if(blob.size===0)zipped.push(new Uint8Array(),true);
   }
-  const metadata={profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,scope:'Act One only',repairMode:'identity-only',folderPathsPreserved:true,
-    created:new Date().toISOString(),checkpoint:selection,changed:changes,renamed,unchangedUnsupported:analysis.filter(x=>x.status==='unsupported').map(x=>({file:x.path,outputFile:paths.get(x.path)})),
-    missingMaps:stats.missing,verification:'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.',
-    privacy:'All processing happened in this browser. No files were sent to a server.'};
+  const metadata=buildReport({exported:true,paths,changes,renamed});
   let reportName='forsaken-repair-report.json';
   while(Array.from(paths.values()).some(path=>path.toLowerCase()===reportName.toLowerCase()))reportName='_'+reportName;
   const report=new ZipPassThrough(reportName);report.mtime=new Date('2026-10-08T00:00:00Z');zip.add(report);
@@ -117,6 +135,7 @@ self.onmessage=async event=>{
     if(event.data.type==='listFolder')await listFolder(event.data.files);
     else if(event.data.type==='checkpoint')await analyzeCheckpoint(event.data.path);
     else if(event.data.type==='export')await exportBundle();
+    else if(event.data.type==='report')exportReport();
     else throw Error('Unknown operation.');
   }catch(error){send('error',{message:error.message||String(error)});}
 };

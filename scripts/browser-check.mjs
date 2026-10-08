@@ -50,6 +50,13 @@ try{
     assert.equal(await page.locator('#missing-note').isVisible(),false);
     await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Checkpoint results overflow at 320 px');await page.setViewportSize({width:1440,height:1080});
     await context.setOffline(true);
+    assert.equal(await page.locator('#report').isEnabled(),true);
+    const reportDownload=page.waitForEvent('download',{timeout:30000});await page.locator('#report').click();
+    const reportFile=await reportDownload;assert.equal(reportFile.suggestedFilename(),'forsaken-repair-report.json');
+    await reportFile.saveAs(path.join(output,'checkpoint-report.json'));
+    const inspected=JSON.parse(await readFile(path.join(output,'checkpoint-report.json'),'utf8'));
+    assert.equal(inspected.reportKind,'analysis');assert.equal(inspected.saves.length,4);
+    assert.ok(inspected.saves.every(row=>row.mapPath&&row.inputChecksum&&row.build&&row.outputChecksum===null));
     const checkpointDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
     assert.match(downloaded.suggestedFilename(),/^after_baron_repaired(?:_\d+)?-bundle.zip$/);
@@ -61,6 +68,8 @@ try{
     assert.equal(metadata.paths.some(path=>path.toLowerCase()===(mainParent+mainOutput).toLowerCase()),false,'Output would overwrite an existing main save');
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
     assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,true);
+    assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
+    assert.ok(report.saves.every(row=>row.inputChecksum&&row.outputChecksum&&row.mapPath&&row.build));
     assert.ok(report.changed.every(change=>change.changedPayloadOffsets.length<=10&&change.buildPreserved));
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
@@ -91,6 +100,15 @@ try{
     if(await unsupported.count()){
       await unsupported.click();await page.locator('#error').waitFor({state:'visible',timeout:120000});
       assert.match(await page.locator('#error').textContent(),/not supported/);assert.equal(await page.locator('#export').isEnabled(),false);
+      assert.equal(await page.locator('#report').isEnabled(),true);
+      const unsupportedDownload=page.waitForEvent('download',{timeout:30000});await page.locator('#report').click();
+      const unsupportedFile=await unsupportedDownload;await unsupportedFile.saveAs(path.join(output,'unsupported-report.json'));
+      const unsupportedReport=JSON.parse(await readFile(path.join(output,'unsupported-report.json'),'utf8'));
+      const observed=unsupportedReport.saves.find(row=>row.file===unsupportedReport.checkpoint.path);
+      const actual=inspectSave(new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z'))));
+      assert.equal(unsupportedReport.reportKind,'analysis');assert.equal(observed.status,'unsupported');
+      assert.equal(observed.mapPath,actual.map);assert.equal(observed.inputChecksum,actual.checksum);assert.equal(observed.build,actual.build);
+      assert.equal(observed.outputChecksum,null);assert.equal(await page.locator('#export').isEnabled(),false);
     }
     console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron and beforebaron scopes checked; existing names, search, unsupported-save blocking and offline download passed.`);
   }

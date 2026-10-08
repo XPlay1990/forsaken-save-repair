@@ -99,18 +99,21 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   }
   check(pos===data.length,'The save contains unexpected trailing data.');
   const build=u16(data,56);
+  const details={map:info.map,mapId:supported?.id||info.map.split(/[\\/]/).at(-1).replace(/\.w3xd$/i,'').toLowerCase(),
+    mapName:supported?.name||unsupportedMapName(info.map)||info.map.split(/[\\/]/).at(-1),
+    checksum:info.checksum,targetChecksum:supported?.current,build,blocks:count,
+    gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
   let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';
-  const unsupportedName=unsupportedMapName(info.map);
-  if(supported){
-    check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
-    check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
-    if(info.checksum===supported.old){status='repair';reason='Old map checksum; ready to repair.';}
-    else if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
-    else throw new Error('Unrecognized checksum for this Act One map. This may be a different patch; no repair will be guessed.');
-  }
-  return {map:info.map,mapId:supported?.id,mapName:supported?.name||unsupportedName||info.map.split(/[\\/]/).at(-1),
-    checksum:info.checksum,targetChecksum:supported?.current,status,reason,build,blocks:count,
-    first,firstEnd,info};
+  try{
+    if(supported){
+      check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
+      check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
+      if(info.checksum===supported.old){status='repair';reason='Old map checksum; ready to repair.';}
+      else if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
+      else throw new Error('Unrecognized checksum for this Act One map. This may be a different patch; no repair will be guessed.');
+    }
+  }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
+  return {...details,status,reason,first,firstEnd,info};
 }
 
 export function repairSave(input){

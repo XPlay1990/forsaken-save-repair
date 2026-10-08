@@ -1,10 +1,10 @@
 const $=id=>document.getElementById(id);
-let worker,stats,downloadURL,busy=false,checkpoints=[],needsAck=false;
+let worker,stats,downloadURL,reportURL,busy=false,checkpoints=[],needsAck=false;
 const labels={repair:'Repair',current:'Current',unsupported:'Unchanged',blocked:'Blocked'};
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('Processing stopped. Try a smaller checkpoint.');}
 function setBusy(value){busy=value;$('folder-button').disabled=value;$('another-save').disabled=value;$('clear').hidden=value;$('progress-area').hidden=!value;$('cancel').hidden=!value;updateExport();}
-function updateExport(){const eligible=stats&&stats.repair+stats.current>0&&!stats.blocked&&stats.checkpointSupported;$('export').disabled=busy||!eligible||(needsAck&&!$('missing-ack').checked);}
-function revokeDownload(){if(downloadURL)URL.revokeObjectURL(downloadURL);downloadURL=null;}
+function updateExport(){const eligible=stats&&stats.repair+stats.current>0&&!stats.blocked&&stats.checkpointSupported;$('export').disabled=busy||!eligible||(needsAck&&!$('missing-ack').checked);$('report').disabled=busy||!stats;}
+function revokeDownload(){if(downloadURL)URL.revokeObjectURL(downloadURL);if(reportURL)URL.revokeObjectURL(reportURL);downloadURL=null;reportURL=null;}
 function resetResults(){stats=null;needsAck=false;revokeDownload();for(const id of ['error','results','success','progress-area'])$(id).hidden=true;$('file-list').replaceChildren();$('missing-ack').checked=false;$('export').hidden=false;updateExport();}
 function clear(){worker?.terminate();worker=null;busy=false;checkpoints=[];resetResults();$('save-picker').hidden=true;$('another-save').hidden=true;$('clear').hidden=true;$('drop-zone').hidden=false;$('bundle-location').hidden=false;$('folder-input').value='';$('save-search').value='';$('folder-button').disabled=false;$('step-label').textContent='Choose your folder';$('step-number').textContent='01';}
 function fail(message){$('error').textContent=message;$('error').hidden=false;setBusy(false);$('clear').hidden=false;$('another-save').hidden=!checkpoints.length;}
@@ -28,8 +28,10 @@ function onMessage({data}){
   else if(data.type==='row')addRow(data.row);
   else if(data.type==='analyzed')renderSummary(data);
   else if(data.type==='error')fail(data.message);
+  else if(data.type==='reported'){setBusy(false);if(reportURL)URL.revokeObjectURL(reportURL);reportURL=URL.createObjectURL(data.blob);const link=document.createElement('a');link.href=reportURL;link.download=data.filename;link.hidden=true;document.body.append(link);link.click();link.remove();}
   else if(data.type==='exported'){setBusy(false);revokeDownload();downloadURL=URL.createObjectURL(data.blob);$('download').href=downloadURL;$('download').download=data.filename;$('success-copy').textContent='Download started. Your original files are unchanged.';$('success').hidden=false;$('export').hidden=true;$('download').click();}
 }
 function selectFolder(files){if(busy||!files.length)return;const selected=Array.from(files);clear();$('drop-zone').hidden=true;$('bundle-location').hidden=true;setBusy(true);$('progress-message').textContent='Listing your saves…';startWorker();worker.postMessage({type:'listFolder',files:selected});}
 $('folder-button').onclick=()=>$('folder-input').click();$('folder-input').onchange=event=>selectFolder(event.target.files);$('clear').onclick=clear;$('cancel').onclick=clear;$('another-save').onclick=showChoices;$('save-search').oninput=renderChoices;$('missing-ack').onchange=updateExport;$('export').onclick=()=>{if($('export').disabled)return;$('error').hidden=true;setBusy(true);worker.postMessage({type:'export'});};
 window.addEventListener('beforeunload',()=>{worker?.terminate();revokeDownload();});
+$('report').onclick=()=>{if($('report').disabled)return;setBusy(true);worker.postMessage({type:'report'});};

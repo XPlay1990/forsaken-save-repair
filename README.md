@@ -54,6 +54,19 @@ The selected ZIP contains the main save, its own companion folder, and a repair 
 ready to extract into the existing campaign folder. Other checkpoints, global
 cache files and `Blizzard/Zones` are excluded. Working Zones may represent a
 different checkpoint; loading a checkpoint restores its own snapshots.
+
+The report inventories every inspected save, including unsupported submaps:
+relative filename, map path and ID, input/output map checksums, serialization
+build and game-format identifiers, inspection status and missing companions.
+Input and output checksums are kept separate so a repaired checksum is never
+mistaken for a pre-patch reference. No gameplay data is included. After selecting
+a checkpoint, **Download repair report** also works when conversion is blocked
+or the main map is unsupported. An inspection-only report has no output checksum.
+Unverifiable fields are null, rather than guessed. Reports from an original save
+and a fresh post-patch save of the same map can identify candidate checksum
+pairs; format validation and game testing are still required before support is
+enabled. A report cannot restore a missing companion's saved progress.
+
 The supported main filename receives `_repaired`, with `_repaired_2`,
 `_repaired_3`, etc. to avoid existing filenames. Already suffixed main filenames
 retain their names. Companion directory and map filenames stay fixed.
