@@ -72,11 +72,34 @@ test('current checkpoints and legacy suffixed inputs preserve their exact input 
   }finally{delete globalThis.self;}
 });
 
+test('a standalone Scarlet Monastery checkpoint exports without invented missing companions',async()=>{
+  const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
+  try{
+    await import('../dist/worker.mjs?standalone-scarlet');
+    const name='Act Two - The Scarlet Monastery (4).w3z',path='ForsakenKingdom/'+name;
+    const map=PROFILE.maps.find(map=>map.id==='undeadre02_06');
+    const data=fixture(map,'b0669dc1').data;
+    const file=new File([data],name);Object.defineProperty(file,'webkitRelativePath',{value:path});
+    await self.onmessage({data:{type:'listFolder',files:[file]}});
+    await self.onmessage({data:{type:'checkpoint',path}});
+    assert.equal(messages.at(-1).type,'analyzed');
+    assert.deepEqual(messages.at(-1).selection.missingFolders,[]);
+    await self.onmessage({data:{type:'export'}});
+    assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
+    const output=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
+    assert.deepEqual(Object.keys(output).sort(),[name,'forsaken-repair-report.json'].sort());
+    assert.deepEqual(output[name],repairSave(data).data);
+    const report=JSON.parse(new TextDecoder().decode(output['forsaken-repair-report.json']));
+    assert.equal(report.checkpoint.companionCount,0);
+    assert.deepEqual(report.missingCompanions,{folders:[],files:[]});
+  }finally{delete globalThis.self;}
+});
+
 test('unsupported checkpoints can export metadata-only reports while missing companions and repair blocking remain visible',async()=>{
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?unsupported-report');
-    const main='ForsakenKingdom/Unknown.w3z';const data=fixture({id:'undeadre99',old:'35f0eca7'},'35f0eca7',7003).data;
+    const main='ForsakenKingdom/Unknown.w3z';const data=fixture({id:'undeadre99',old:'35f0eca7'},'35f0eca7',7003,{records:[{offset:5000,text:'Blizzard\\Unknown\\UndeadRE01_03.w3z'}]}).data;
     const file=new File([data],'Act Two.w3z');Object.defineProperty(file,'webkitRelativePath',{value:main});
     await self.onmessage({data:{type:'listFolder',files:[file]}});
     await self.onmessage({data:{type:'report'}});assert.equal(messages.at(-1).type,'error');
@@ -86,7 +109,7 @@ test('unsupported checkpoints can export metadata-only reports while missing com
     assert.equal(messages.at(-1).type,'reported');assert.equal(messages.at(-1).blob.type,'application/json');
     const report=JSON.parse(await messages.at(-1).blob.text());
     assert.equal(report.reportKind,'analysis');assert.deepEqual(report.changed,[]);assert.deepEqual(report.renamed,[]);
-    assert.deepEqual(report.missingCompanions,{folders:['Unknown'],files:[]});
+    assert.deepEqual(report.missingCompanions,{folders:['Unknown'],files:['Blizzard/Unknown/UndeadRE01_03.w3z']});
     assert.equal(report.saves[0].mapId,'undeadre99');assert.equal(report.saves[0].inputChecksum,'35f0eca7');
     assert.equal(report.saves[0].build,7003);assert.equal(report.saves[0].status,'unsupported');
     assert.equal(report.saves[0].outputFile,null);assert.equal(report.saves[0].outputChecksum,null);

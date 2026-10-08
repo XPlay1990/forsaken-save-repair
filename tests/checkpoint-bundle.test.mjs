@@ -3,6 +3,27 @@ import assert from 'node:assert/strict';
 import {indexFolder,checkpointBundle,resolveCheckpointBundle,companionReferenceScanner} from '../dist/checkpoint-bundle.mjs';
 const fake=(path,size=20,lastModified=0)=>({name:path.split('/').at(-1),webkitRelativePath:path,size,lastModified,arrayBuffer(){throw Error('Indexing must not read file contents');}});
 
+test('numbered standalone checkpoints do not invent missing companions from unrelated Act One folders',()=>{
+  for(const number of [1,3,4]){
+    const main=`ForsakenKingdom/Act Two - The Scarlet Monastery (${number}).w3z`;
+    const index=indexFolder([fake(main),fake('ForsakenKingdom/Blizzard/Act One - Undercity/UndeadRE01.w3z'),fake('ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z')]);
+    const bundle=checkpointBundle(index.entries,main);
+    assert.deepEqual(bundle.entries.map(entry=>entry.path),[main]);
+    assert.equal(bundle.companionCount,0);
+    assert.deepEqual(bundle.missingFolders,[]);
+    assert.deepEqual(bundle.missingFiles,[]);
+  }
+});
+
+test('a missing referenced companion folder reports its saved name and files without guessing from numbered filenames',()=>{
+  const main='ForsakenKingdom/Act Two - The Scarlet Monastery (4).w3z';
+  const reference='Blizzard/Original checkpoint/UndeadRE02.w3z';
+  const bundle=checkpointBundle(indexFolder([fake(main)]).entries,main,['Original checkpoint','ORIGINAL CHECKPOINT'],[reference]);
+  assert.deepEqual(bundle.missingFolders.map(name=>name.toLowerCase()),['original checkpoint']);
+  assert.deepEqual(bundle.missingFiles,[reference]);
+  assert.deepEqual(bundle.entries.map(entry=>entry.path),[main]);
+});
+
 test('listing a multi-gigabyte collection reads metadata only; bundles contain one checkpoint and its own companions',()=>{
   const files=[fake('ForsakenKingdom/a.w3z',50,2),fake('ForsakenKingdom/b.w3z',2*1024**3,1),fake('ForsakenKingdom/Blizzard/a/UndeadRE01.w3z',30),fake('ForsakenKingdom/Blizzard/a/notes.txt',5),fake('ForsakenKingdom/Blizzard/b/UndeadRE01.w3z',2*1024**3),fake('ForsakenKingdom/Blizzard/Zones/UndeadRE01.w3z',20),fake('ForsakenKingdom/Campaigns.w3v',10),fake('ForsakenKingdom/CustomSaves/WorldEditTestMap/map.w3z')];
   const index=indexFolder(files);assert.deepEqual(index.checkpoints.map(x=>x.name),['a','b']);

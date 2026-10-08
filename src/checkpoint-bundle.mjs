@@ -39,9 +39,16 @@ export function checkpointBundle(inventory,path,references=[],requiredFiles=[]){
   const prefix=folder?`${parent}Blizzard/${folder}/`.toLowerCase():null;
   const companions=prefix?inventory.filter(entry=>entry.path.toLowerCase().startsWith(prefix)):[];
   const knownPaths=new Set(inventory.map(entry=>entry.path.toLowerCase()));
-  const missingFiles=prefix?Array.from(requiredFiles).filter(relative=>(parent+relative).toLowerCase().startsWith(prefix)&&!knownPaths.has((parent+relative).toLowerCase())):[];
+  // An absent same-name folder is not evidence that this save needs companions.
+  // With no matching folder, disclose only folders/files named by the main save.
+  const missingFolders=folder?[]:Array.from(new Map(Array.from(references).filter(name=>!/^zones$/i.test(name)&&!available(name)).map(name=>[name.toLowerCase(),name])).values());
+  const missingFiles=Array.from(requiredFiles).filter(relative=>{
+    const absolute=(parent+relative).toLowerCase();
+    const inScope=prefix?absolute.startsWith(prefix):missingFolders.some(name=>relative.toLowerCase().startsWith(`blizzard/${name.toLowerCase()}/`));
+    return inScope&&!knownPaths.has(absolute);
+  });
   return {entries:[main,...companions],companionFolder:folder?`${parent}Blizzard/${folder}`:null,
-    missingFolders:folder?[]:[original],missingFiles,companionCount:companions.filter(entry=>entry.path.toLowerCase().endsWith('.w3z')).length};
+    missingFolders,missingFiles,companionCount:companions.filter(entry=>entry.path.toLowerCase().endsWith('.w3z')).length};
 }
 
 export async function resolveCheckpointBundle(inventory,path,readReferences,{maxBytes=1024**3,maxFiles=5000}={}){

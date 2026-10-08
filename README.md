@@ -1,7 +1,7 @@
 # Forsaken Save Repair
 
-**Public beta · v0.1.0-beta.1.** Checksum conversion covers all installed maps;
-gameplay verification remains limited to the Act One locations listed below.
+**Public beta · v0.1.0-beta.2.** Checksum conversion covers all installed maps;
+gameplay verification is specific to the checkpoints and behaviors listed below.
 See [release notes](CHANGELOG.md).
 
 A static, browser-only recovery tool for **Warcraft III: Forsaken Kingdom,
@@ -36,7 +36,7 @@ were confirmed by a player, including travel to Trade Quarter. The player also
 reported a successful `beforebaron` playtest after reverting to checksum-only
 browser exports. These are recovered playthroughs, not proof that
 every campaign script is compatible. Additional maps are enabled for checksum
-conversion and remain untested in game. The tool does **not** port saved quest or
+conversion without general gameplay validation. The tool does **not** port saved quest or
 item-drop scripts. On a recognized map, a validated save with any non-target
 checksum is updated to that map's extracted 3.0.1 checksum; the source patch
 cannot be inferred from the save serialization build. Use pre-3.0.1 saves only.
@@ -55,8 +55,9 @@ fallbacks stop conversion rather than including multiple checkpoints.
 Companion snapshots may contain older folder names in their saved state;
 those strings do not expand the selection into other checkpoint folders.
 Missing referenced files within the selected companion folder are disclosed.
-Missing companions
-are disclosed before allowing a partial download. Unsupported main saves cannot
+An absent same-name folder alone is not reported as missing: standalone saves
+can load without companions. Missing folders and files named by the inspected
+main save are disclosed before allowing a partial download. Unsupported main saves cannot
 be exported as repaired checkpoints.
 
 The selected ZIP contains the main save, its own companion folder, and a repair report,
@@ -104,6 +105,12 @@ download itself does not change original files; copying the contents back does.
 Use an original checkpoint as input: checksum-only conversion cannot undo a
 previous experimental folder migration.
 Load the checkpoint with its existing name and test travel before saving again.
+
+One Scarlet Monastery checkpoint passed loading, immediate saving on the new
+patch and reloading, without a companion directory. Two later checkpoints were
+reported to crash during loading. Their recovery remains unresolved; checksum
+coverage and a successful earlier checkpoint do not establish compatibility of
+every saved state.
 The selected bundle excludes unselected checkpoints and preserves every save
 path within the campaign folder.
 

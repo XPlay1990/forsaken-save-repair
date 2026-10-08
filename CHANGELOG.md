@@ -1,5 +1,16 @@
 # Release notes
 
+## v0.1.0-beta.2
+
+- Fix a false missing-companion warning for standalone saves. A missing
+  same-name folder alone no longer requires acknowledging a partial download.
+  Missing folders and files referenced by the save are still reported.
+- Preserve checkpoint scope and numbered filenames such as `(3)` and `(4)`.
+  Unrelated Act One folders and working Zones are not selected as companions.
+- Clarify testing limits: one Scarlet Monastery checkpoint passed load/save/reload
+  without companions; later checkpoints still crash during loading. Checksum
+  repair does not migrate saved gameplay or script state.
+
 ## v0.1.0-beta.1
 
 First public beta for recovering pre-3.0.1 Forsaken Kingdom saves on
