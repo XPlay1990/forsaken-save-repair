@@ -1,0 +1,16 @@
+import {mkdir, cp, copyFile, rm} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root = fileURLToPath(new URL('../', import.meta.url));
+const dist = path.join(root, 'dist');
+if(path.dirname(dist)!==path.resolve(root)||path.basename(dist)!=='dist')throw Error('Build output leaves the project directory.');
+await rm(dist, {recursive:true, force:true});
+await mkdir(path.join(dist, 'vendor'), {recursive:true});
+await cp(path.join(root, 'src'), dist, {recursive:true});
+await copyFile(path.join(root,'node_modules/pako/dist/pako.esm.mjs'), path.join(dist,'vendor/pako.mjs'));
+await copyFile(path.join(root,'node_modules/fflate/esm/browser.js'), path.join(dist,'vendor/fflate.mjs'));
+await copyFile(path.join(root,'node_modules/pako/LICENSE'), path.join(dist,'vendor/pako-LICENSE.txt'));
+await copyFile(path.join(root,'node_modules/fflate/LICENSE'), path.join(dist,'vendor/fflate-LICENSE.txt'));
+await copyFile(path.join(root,'LICENSE'), path.join(dist,'LICENSE.txt'));
+await copyFile(path.join(root,'THIRD_PARTY.md'), path.join(dist,'THIRD_PARTY.txt'));
+console.log('Static site built. Every runtime asset is local to dist/.');

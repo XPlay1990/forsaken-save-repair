@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.local-tests/
+*.w3z
+*.w3v
+*.w3p
+*.zip

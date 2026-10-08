@@ -1,0 +1,13 @@
+{
+  "name": "forsaken-save-repair",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "start": "node scripts/serve.mjs"
+  },
+  "dependencies": {"fflate": "0.8.2", "pako": "2.1.0"},
+  "devDependencies": {"playwright": "1.56.1"}
+}
