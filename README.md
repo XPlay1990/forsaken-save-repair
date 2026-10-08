@@ -21,8 +21,8 @@ settings identity and the plain map-checksum field, retains the original save
 build and gameplay payload, recompresses only the first block for the identity
 repair, and rebuilds the container integrity checksums.
 
-Only the main filename receives `_repaired`; its companion folder retains its
-original name. All serialized folder references and every compressed block after
+Save filenames and companion directory names are preserved exactly. All
+serialized folder references and every compressed block after
 the identity block stay unchanged. An attempted folder migration passed binary
 checks but the player reported a loading crash for `beforebaron_repaired`.
 Folder migration is disabled; its engine compatibility remains unresolved.
@@ -91,19 +91,17 @@ it need not appear in the observed-old table. Reports distinguish
 patch or future-patch compatibility. Newly covered maps must not be described as
 game-tested. Unknown maps stay byte-identical.
 
-The supported main filename receives `_repaired`, with `_repaired_2`,
-`_repaired_3`, etc. to avoid existing filenames. Already suffixed main filenames
-retain their names. Companion directory and map filenames stay fixed.
-Close the game, back up the entire campaign folder, and extract the output into
-the original folder. The repaired main can sit alongside the original, but its
-companion paths are shared with the original checkpoint. Copying the repaired
-companions can therefore replace files used by the original; keep the backup.
+No recovery suffix or numbered filename is added. Existing input filenames,
+including older suffixed exports, are preserved exactly. Reports record
+`filenamesPreserved: true` and an empty `renamed` list.
+Close the game, back up the entire campaign folder, and copy the ZIP contents
+into the original folder, replacing the selected save and its companions. The
+download itself does not change original files; copying the contents back does.
 Use an original checkpoint as input: checksum-only conversion cannot undo a
 previous experimental folder migration.
-Filename collision checks include unselected checkpoints in the chosen folder.
-Load a `_repaired` checkpoint and test travel before saving under
-a new name. Renamed main saves were used during the recovered playthrough;
-the browser export's naming and preserved paths are checked programmatically.
+Load the checkpoint with its existing name and test travel before saving again.
+The selected bundle excludes unselected checkpoints and preserves every save
+path within the campaign folder.
 
 Large bundles are processed file by file, with one expanded save block in
 memory at a time. Each selected checkpoint bundle is limited to 1 GB and 5,000

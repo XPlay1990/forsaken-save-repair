@@ -23,6 +23,9 @@ try{
   const locationBox=await page.locator('#bundle-location').boundingBox(),uploadBox=await page.locator('#folder-button').boundingBox();
   assert.ok(locationBox.y+locationBox.height<uploadBox.y,'Folder location must appear above upload controls');
   assert.equal(await page.locator('#instructions-title').isVisible(),true);
+  assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
+  assert.match(await page.locator('.instruction-list').textContent(),/Back up your campaign folder/);
+  assert.match(await page.locator('.instruction-list').textContent(),/replacing the existing files/);
   assert.match(await page.locator('.limitations-list').textContent(),/all maps in Acts One–Three/);
   assert.match(await page.locator('.limitations-list').textContent(),/Other areas still need testing/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
@@ -62,13 +65,14 @@ try{
     assert.ok(inspected.saves.every(row=>row.mapPath&&row.inputChecksum&&row.build&&row.outputChecksum===null));
     const checkpointDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
-    assert.match(downloaded.suggestedFilename(),/^after_baron_repaired(?:_\d+)?-bundle.zip$/);
+    assert.equal(downloaded.suggestedFilename(),'after_baron-bundle.zip');
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
     assert.equal(report.checkpoint.path,selectedPath);assert.equal(report.checkpoint.companionCount,3);
-    const mainOutput=report.renamed.find(item=>item.from===selectedPath).to;
+    const mainOutput=report.saves.find(item=>item.file===selectedPath).outputFile;
+    assert.equal(mainOutput,'after_baron.w3z');assert.deepEqual(report.renamed,[]);assert.equal(report.filenamesPreserved,true);
     const mainParent=selectedPath.slice(0,selectedPath.lastIndexOf('/')+1);
-    assert.equal(metadata.paths.some(path=>path.toLowerCase()===(mainParent+mainOutput).toLowerCase()),false,'Output would overwrite an existing main save');
+    assert.equal(mainParent+mainOutput,selectedPath,'Restore must use the selected checkpoint original filename');
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
     assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,true);
     assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
@@ -93,7 +97,8 @@ try{
       const beforeFile=await beforeDownload;await beforeFile.saveAs(path.join(output,'beforebaron-checksum-only.zip'));
       const beforeZip=unzipSync(new Uint8Array(await readFile(path.join(output,'beforebaron-checksum-only.zip'))));
       const beforeReport=JSON.parse(new TextDecoder().decode(beforeZip['forsaken-repair-report.json']));
-      const beforeOutput=beforeReport.renamed.find(item=>item.from.endsWith('/beforebaron.w3z')).to;
+      const beforeOutput=beforeReport.saves.find(item=>item.file.endsWith('/beforebaron.w3z')).outputFile;
+      assert.equal(beforeOutput,'beforebaron.w3z');assert.deepEqual(beforeReport.renamed,[]);
       assert.equal(beforeReport.repairMode,'identity-only');
       for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;const originalPath=name===beforeOutput?'beforebaron.w3z':name;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron/'));const original=new Uint8Array(await readFile(path.join(campaign,originalPath)));assert.deepEqual(data,repairSave(original).data);}
       await page.locator('#another-save').click();

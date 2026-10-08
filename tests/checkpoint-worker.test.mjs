@@ -24,13 +24,15 @@ test('checkpoint export repairs an additional Act One companion while preserving
     await self.onmessage({data:{type:'export'}});
     assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
     const output=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
-    assert.deepEqual(Object.keys(output).sort(),['Blizzard/beforebaron/UndeadRE01_03.w3z','Blizzard/beforebaron/UndeadRE01_05.w3z','Blizzard/beforebaron/UndeadRE99.w3z','beforebaron_repaired_2.w3z','forsaken-repair-report.json'].sort());
-    assert.deepEqual(output['beforebaron_repaired_2.w3z'],repairSave(original).data);
+    assert.deepEqual(Object.keys(output).sort(),['Blizzard/beforebaron/UndeadRE01_03.w3z','Blizzard/beforebaron/UndeadRE01_05.w3z','Blizzard/beforebaron/UndeadRE99.w3z','beforebaron.w3z','forsaken-repair-report.json'].sort());
+    assert.deepEqual(output['beforebaron.w3z'],repairSave(original).data);
     assert.deepEqual(output['Blizzard/beforebaron/UndeadRE01_03.w3z'],companion);
     assert.deepEqual(output['Blizzard/beforebaron/UndeadRE01_05.w3z'],repairSave(arcane).data);
     assert.deepEqual(output['Blizzard/beforebaron/UndeadRE99.w3z'],unknown);
     const report=JSON.parse(new TextDecoder().decode(output['forsaken-repair-report.json']));
     assert.equal(report.reportVersion,1);assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
+    assert.equal(report.filenamesPreserved,true);assert.deepEqual(report.renamed,[]);
+    assert.equal(messages.at(-1).filename,'beforebaron-bundle.zip');
     const root=report.saves.find(row=>row.file===main),unsupported=report.saves.find(row=>row.status==='unsupported');
     assert.equal(root.inputChecksum,PROFILE.maps[0].old);assert.equal(root.outputChecksum,PROFILE.maps[0].current);
     assert.equal(unsupported.mapPath,'Campaign\\ForsakenKingdom\\undeadre99.w3xd');assert.equal(unsupported.mapId,'undeadre99');
@@ -42,9 +44,31 @@ test('checkpoint export repairs an additional Act One companion while preserving
     const repairedArcane=report.saves.find(row=>row.mapId==='undeadre01_05');
     assert.equal(repairedArcane.outputChecksum,'e3d412fe');assert.equal(repairedArcane.sourceRevisionKnown,false);assert.equal(repairedArcane.mapGameTested,false);
     assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks'].sort(),'Report must contain inspection metadata only');
-    const old=inspectSave(original),fixed=inspectSave(output['beforebaron_repaired_2.w3z']);
-    assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(fixed.firstEnd),original.subarray(old.firstEnd));
-    assert.deepEqual(output['beforebaron_repaired_2.w3z'].subarray(40,64),original.subarray(40,64));
+    assert.equal(root.outputFile,'beforebaron.w3z');
+    const old=inspectSave(original),fixed=inspectSave(output['beforebaron.w3z']);
+    assert.deepEqual(output['beforebaron.w3z'].subarray(fixed.firstEnd),original.subarray(old.firstEnd));
+    assert.deepEqual(output['beforebaron.w3z'].subarray(40,64),original.subarray(40,64));
+  }finally{delete globalThis.self;}
+});
+
+test('current checkpoints and legacy suffixed inputs preserve their exact input filenames',async()=>{
+  const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
+  try{
+    await import('../dist/worker.mjs?preserved-input-names');
+    for(const [name,folder,checksum] of [['Checkpoint With Spaces.W3Z','Checkpoint With Spaces',PROFILE.maps[0].current],['save_repaired_2.w3z','save',PROFILE.maps[0].old]]){
+      const main=fixture(PROFILE.maps[0],checksum).data,companion=fixture(PROFILE.maps[0],PROFILE.maps[0].current).data;
+      const make=(path,data)=>{const file=new File([data],path.split('/').at(-1));Object.defineProperty(file,'webkitRelativePath',{value:path});return file;};
+      const path=`ForsakenKingdom/${name}`,snapshot=`Blizzard/${folder}/UndeadRE01.w3z`;
+      await self.onmessage({data:{type:'listFolder',files:[make(path,main),make(`ForsakenKingdom/${snapshot}`,companion)]}});
+      await self.onmessage({data:{type:'checkpoint',path}});await self.onmessage({data:{type:'export'}});
+      assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
+      const zip=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
+      assert.deepEqual(Object.keys(zip).sort(),[name,snapshot,'forsaken-repair-report.json'].sort());
+      assert.deepEqual(zip[name],repairSave(main).data);assert.deepEqual(zip[snapshot],companion);
+      const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
+      assert.deepEqual(report.renamed,[]);assert.equal(report.filenamesPreserved,true);
+      assert.equal(report.saves.find(row=>row.file===path).outputFile,name);
+    }
   }finally{delete globalThis.self;}
 });
 

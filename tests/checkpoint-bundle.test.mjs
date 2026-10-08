@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {indexFolder,checkpointBundle,resolveCheckpointBundle,companionReferenceScanner} from '../dist/checkpoint-bundle.mjs';
-import {planBundleNames} from '../dist/bundle-names.mjs';
 const fake=(path,size=20,lastModified=0)=>({name:path.split('/').at(-1),webkitRelativePath:path,size,lastModified,arrayBuffer(){throw Error('Indexing must not read file contents');}});
 
 test('listing a multi-gigabyte collection reads metadata only; bundles contain one checkpoint and its own companions',()=>{
@@ -24,12 +23,6 @@ test('repaired filename uses its original folder without adding folders named in
   assert.equal(checkpointBundle(index.entries,files[0].name).companionCount,1);
   const missing=checkpointBundle(index.entries,files[0].name,['missing']);
   assert.deepEqual(missing.missingFolders,[]);assert.equal(missing.companionCount,1);
-});
-test('selected bundle export respects filename collisions with unselected checkpoints',()=>{
-  const source=[{path:'save.w3z'},{path:'Blizzard/save/UndeadRE01.w3z'}];
-  const names=planBundleNames(source,[{path:'save.w3z',status:'repair'}],{reservedPaths:['SAVE_REPAIRED.W3Z','save_repaired_2.w3z']});
-  assert.equal(names.paths.get('save.w3z'),'save_repaired_3.w3z');
-  assert.equal(names.paths.get(source[1].path),source[1].path);
 });
 test('a matching checkpoint folder wins over saved paths naming another checkpoint',()=>{
   const index=indexFolder([fake('before_baron.w3z'),fake('Blizzard/before_baron/UndeadRE01.w3z'),fake('Blizzard/older/UndeadRE01_02.w3z')]);

@@ -1,7 +1,6 @@
 import {Zip, ZipPassThrough} from './vendor/fflate.mjs';
 import {inspectSave,repairSave,assertUniquePaths} from './repair.mjs';
 import {PROFILE} from './profiles.mjs';
-import {planBundleNames} from './bundle-names.mjs';
 import {indexFolder,resolveCheckpointBundle,companionReferenceScanner} from './checkpoint-bundle.mjs';
 
 let entries=[];let analysis=[];let inventory=[];let selection=null;
@@ -13,7 +12,7 @@ function publicResult(result,path,size){
   const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion}=result;
   return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion};
 }
-function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
+function buildReport({exported=false,paths=new Map(),changes=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
   const stats=summary(analysis);
   const saves=analysis.map(row=>({file:row.path,outputFile:exported?paths.get(row.path):null,
@@ -25,7 +24,7 @@ function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,
     scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',repairMode:'identity-only',folderPathsPreserved:true,
     sourcePolicy:PROFILE.sourcePolicy,mapVerification:PROFILE.verification,
-    created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed,
+    created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed:[],filenamesPreserved:true,
     unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
     missingCompanions:{folders:selection.missingFolders,files:selection.missingFiles},supportedMapsNotInBundle:stats.missing,
     verification:exported?'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.':'Inspection only. No save files were changed. Null metadata means it could not be verified.',
@@ -86,21 +85,20 @@ async function analyzeEntries(cached=new Map()){
     }catch(error){analysis.push(error.inspection?publicResult(error.inspection,entry.path,entry.blob.size):{path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
     send('row',{row:analysis.at(-1)});
   }
-  const {renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
-  send('analyzed',{rows:analysis,renamed,selection,summary:summary(analysis),files:entries.length,bytes:entries.reduce((sum,x)=>sum+x.blob.size,0)});
+  send('analyzed',{rows:analysis,selection,summary:summary(analysis),files:entries.length,bytes:entries.reduce((sum,x)=>sum+x.blob.size,0)});
 }
 async function exportBundle(){
   const stats=summary(analysis);
   ensure(selection&&entries.length>0&&!stats.blocked,'The bundle contains an invalid or unverified save; export stopped.');
   ensure(stats.repair+stats.current>0,'No recognized campaign saves were selected.');
   ensure(stats.checkpointSupported,'This main save is not a recognized campaign map.');
-  const {paths,renamed}=planBundleNames(entries,analysis,{reservedPaths:inventory.map(entry=>entry.path)});
+  assertUniquePaths(entries);
+  const paths=new Map(entries.map(entry=>[entry.path,entry.path]));
   {
     // Folder-picker paths include the chosen root; export its contents so the
     // user can copy the ZIP straight into the existing campaign directory.
     const prefix=selection.path.slice(0,selection.path.lastIndexOf('/')+1);
     for(const [source,output] of paths){ensure(output.startsWith(prefix),'A companion is outside this checkpoint directory.');paths.set(source,output.slice(prefix.length));}
-    for(const item of renamed)item.to=paths.get(item.from);
   }
   const chunks=[];let zipError;
   const zip=new Zip((error,data,final)=>{if(error)zipError=error;else chunks.push(data);});
@@ -124,13 +122,13 @@ async function exportBundle(){
     }
     if(blob.size===0)zipped.push(new Uint8Array(),true);
   }
-  const metadata=buildReport({exported:true,paths,changes,renamed});
+  const metadata=buildReport({exported:true,paths,changes});
   let reportName='forsaken-repair-report.json';
   while(Array.from(paths.values()).some(path=>path.toLowerCase()===reportName.toLowerCase()))reportName='_'+reportName;
   const report=new ZipPassThrough(reportName);report.mtime=new Date('2026-10-08T00:00:00Z');zip.add(report);
   report.push(new TextEncoder().encode(JSON.stringify(metadata,null,2)),true);zip.end();
   if(zipError)throw zipError;
-  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length,renamed:renamed.length,filename:paths.get(selection.path).replace(/\.w3z$/i,'-bundle.zip')});
+  send('exported',{blob:new Blob(chunks,{type:'application/zip'}),changes:changes.length,filename:paths.get(selection.path).replace(/\.w3z$/i,'-bundle.zip')});
 }
 self.onmessage=async event=>{
   try{
