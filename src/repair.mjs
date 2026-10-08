@@ -34,7 +34,7 @@ export function inflateBlock(compressed,expected){
 export function compressBlock(raw){
   const chunks=[];const stream=new Deflate({level:1});
   stream.onData=chunk=>chunks.push(chunk);
-  check(stream.push(raw,constants.Z_SYNC_FLUSH)&&!stream.err,'Could not recompress the identity block.');
+  check(stream.push(raw,constants.Z_SYNC_FLUSH)&&!stream.err,'Could not recompress a save block.');
   return join(chunks);
 }
 

@@ -15,15 +15,36 @@ this repository and its Actions artifacts.
 The initial profile contains exact, verified old/current checksum pairs for
 Undercity, Capital City Ruins, and Tirisfal Glades. It updates the encoded
 settings identity and the plain map-checksum field, retains the original save
-build and gameplay payload, recompresses only the first block, and rebuilds the
-container integrity checksums. Other compressed blocks are copied byte for byte.
+build and gameplay payload, recompresses only the first block for the identity
+repair, and rebuilds the container integrity checksums.
+
+The output now pairs `name_repaired.w3z` with `Blizzard/name_repaired/`.
+Folder migration rewrites observed Lua string records (type 4 followed by an
+eight-byte little-endian UTF-8 byte length) whose value is a checkpoint directory
+or a checkpoint `.w3z` path. This applies to the main file and its selected
+companion snapshots, whose recorded checkpoint names may differ. Working
+`Blizzard/Zones` paths, map filenames, base directory constants, and other data
+are retained. Longer or shorter strings require repacking from the first changed
+block and updating payload size, block count, compression and integrity fields.
+Compressed blocks before that point are preserved.
+
+Every migrated output is checked by reversing the recorded string edits and
+comparing the reconstructed logical payload exactly against the checksum-repaired
+input. Tests use native Node zlib fixtures, including boundary crossings and
+block-count changes. A separate Python/native-zlib checker also verified the
+real `after_baron` main save and its companions. **Folder migration awaits player
+loading, travel and resave tests.** The earlier confirmed playthrough covered
+checksum repair with original companion paths.
 
 Main-save loading, travel between all three maps, and saving again in Undercity
 were confirmed by a player. This is one recovered playthrough, not proof that
 every campaign script is compatible. Other Act One areas also need separately
 verified donors before they can be added. The tool does **not** port saved quest or
 item-drop scripts. Unknown checksums for a supported map block export rather
-than guessing. Other acts are copied unchanged and identified in the report.
+than guessing. Unsupported companion map checksums remain unchanged and are
+identified in the report; their folder paths can still be migrated when their
+container and serialization build match the checked format. Unsupported main
+saves remain ineligible for conversion.
 
 Select the `ForsakenKingdom` folder. The worker lists main save filenames using
 metadata only; the collection's total size is not subject to the processing cap.
@@ -43,16 +64,16 @@ The selected ZIP contains the main save, its own companion folder, and a repair 
 ready to extract into the existing campaign folder. Other checkpoints, global
 cache files and `Blizzard/Zones` are excluded. Working Zones may represent a
 different checkpoint; loading a checkpoint restores its own snapshots.
-Supported main saves receive `_repaired` before `.w3z`. Already suffixed
-checkpoints keep their names; collisions use `_repaired_2`, `_repaired_3`, etc.
-Unsupported main saves retain their names. All name changes appear in the
-file checks and repair report. Companion folders and snapshot filenames retain
-their paths: inspected saves contain serialized references such as
-`Blizzard\\after_baron\\UndeadRE01_03.w3z`. Changing those paths would require
-gameplay-payload changes beyond the verified checksum repair.
+Supported main saves and their companion directories receive the same
+`_repaired` name. Filename and folder collisions share `_repaired_2`,
+`_repaired_3`, etc., so an orphan destination directory cannot be overwritten.
+Already paired bundles retain their names; older repaired filenames using an
+original companion directory receive a fresh pair. Map snapshot filenames stay
+fixed. All path changes and serialized string edits appear in the repair report.
 Close the game, back up the entire campaign folder, and extract the output into
 the original folder. Main checkpoint files can sit alongside their originals,
-but companion snapshots retain their paths and may replace existing files.
+with the new matching companion directory. Original unsuffixed bundles can
+remain alongside the repaired pair.
 Filename collision checks include unselected checkpoints in the chosen folder.
 Load a `_repaired` checkpoint and test travel before saving under
 a new name. Renamed main saves were used during the recovered playthrough;
@@ -104,7 +125,8 @@ Arcane Sanctuary
 is still missing, so it is named in results and preserved unchanged. Remaining
 Act One areas and Acts Two and Three are pending. The display label for an
 unsupported map never enables a repair; only verified old/current pairs in
-`src/profiles.mjs` do.
+`src/profiles.mjs` do. An unsupported companion's path migration does not enable
+or imply a map-checksum repair.
 
 The Warcraft-inspired theme uses original SVG stone texture, a citadel
 silhouette, and a bronze crest; it includes no extracted game artwork.

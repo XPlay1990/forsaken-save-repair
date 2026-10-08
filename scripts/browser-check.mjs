@@ -33,7 +33,7 @@ try{
   await page.setViewportSize({width:1440,height:1080});
   const campaign=process.env.FORSAKEN_CAMPAIGN_ROOT;
   if(campaign){
-    await page.locator('#folder-input').evaluate(input=>input.addEventListener('change',()=>{window.testFolderMetadata={bytes:Array.from(input.files).reduce((sum,file)=>sum+file.size,0),files:input.files.length};},{capture:true,once:true}));
+    await page.locator('#folder-input').evaluate(input=>input.addEventListener('change',()=>{window.testFolderMetadata={bytes:Array.from(input.files).reduce((sum,file)=>sum+file.size,0),files:input.files.length,paths:Array.from(input.files,file=>file.webkitRelativePath)};},{capture:true,once:true}));
     await page.locator('#folder-input').setInputFiles(campaign);
     await page.locator('#save-picker').waitFor({state:'visible',timeout:30000});
     assert.equal(await page.locator('#error').isVisible(),false);
@@ -50,20 +50,24 @@ try{
     assert.equal(await page.locator('#missing-note').isVisible(),false);
     await page.setViewportSize({width:320,height:800});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,'Checkpoint results overflow at 320 px');await page.setViewportSize({width:1440,height:1080});
     await context.setOffline(true);
-    const checkpointDownload=page.waitForEvent('download');await page.locator('#export').click();
+    const checkpointDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
-    assert.match(downloaded.suggestedFilename(),/^after_baron_repaired_\d+-bundle.zip$/,'Output must avoid the existing repaired save');
+    assert.match(downloaded.suggestedFilename(),/^after_baron_repaired(?:_\d+)?-bundle.zip$/);
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
     assert.equal(report.checkpoint.path,selectedPath);assert.equal(report.checkpoint.companionCount,3);
     const mainOutput=report.renamed.find(item=>item.from===selectedPath).to;
+    const mainParent=selectedPath.slice(0,selectedPath.lastIndexOf('/')+1);
+    assert.equal(metadata.paths.some(path=>path.toLowerCase()===(mainParent+mainOutput).toLowerCase()),false,'Output would overwrite an existing main save');
+    assert.equal(metadata.paths.some(path=>path.toLowerCase().startsWith(report.checkpoint.outputFolder.toLowerCase()+'/')),false,'Output would overwrite an existing companion folder');
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
-    const sourceMain=new Uint8Array(await readFile(path.join(campaign,'after_baron.w3z'))),sourceInfo=inspectSave(sourceMain),outInfo=inspectSave(converted[mainOutput]);
-    assert.deepEqual(converted[mainOutput].subarray(outInfo.firstEnd),sourceMain.subarray(sourceInfo.firstEnd),'Saved reference strings and other compressed blocks changed');
+    const targetFolder=mainOutput.slice(0,-4);
+    assert.equal(report.changed.length,4);assert.ok(report.changed.every(change=>change.pathRecords.length>=2&&change.buildPreserved));
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
     assert.equal(snapshots.length,report.checkpoint.companionCount);
-    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron/'),'Another checkpoint folder leaked into export');
+    for(const name of snapshots)assert.ok(name.startsWith(`Blizzard/${targetFolder}/`),'Save and companion folder names do not match');
+    assert.equal(Object.keys(converted).some(name=>name.startsWith('Blizzard/after_baron/')),false);
     assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
     await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('#save-search').fill('beforebaron');
