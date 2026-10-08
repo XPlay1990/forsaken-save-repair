@@ -18,6 +18,7 @@ test('campaign name lookup uses the complete path with case and separator normal
 
 test('all installed maps are eligible for checksum repair with explicit game-test provenance',()=>{
   assert.equal(PROFILE.maps.length,20);
+  assert.deepEqual(PROFILE.maps.filter(map=>map.gameTested).map(map=>map.id).sort(),['undeadre01','undeadre01_02','undeadre01_03','undeadre02','undeadre02_04','undeadre02_06']);
   for(const map of MAP_CATALOG){
     const supported=mapProfile(map.mapPath);assert.ok(supported,map.id);
     const source=fixture(map,'11223344').data,result=inspectSave(source);

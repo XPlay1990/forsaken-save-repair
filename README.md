@@ -50,8 +50,9 @@ conversion is blocked.
 
 ## Verification and limits
 
-Player tests confirmed loading, travel and saving in Undercity / Trade Quarter,
-Tirisfal Glades and Capital City Ruins. Scarlet checkpoints (1) and (6) loaded
+Player-tested locations are Act One's Undercity / Trade Quarter, Tirisfal Glades
+and Capital City Ruins, and Act Two's Undercity starting map, Scarlet Monastery
+and Dawn's Watch. Act One tests included travel and saving. Scarlet checkpoints (1) and (6) loaded
 with checksum repair. Targeted projectile repair made Neo's (4) load, followed
 by native resaving and successful reload. Reversing those projectile fields in a
 working current-engine save caused a loading crash. These observations do not
@@ -61,14 +62,16 @@ The browser repair matches independently generated private Python outputs for
 Scarlet (2)–(5), including an earlier checksum-only export, byte for byte.
 The player also confirmed that targeted (2), (3) and (5) copies load.
 On 2026-10-08, the player reported testing every Neo save available to them with
-the current converter and said they all work. That report does not identify
-additional map coverage or establish a complete campaign playthrough.
+the current converter and said they all work, subsequently identifying Scarlet
+Monastery and Dawn's Watch as tested Neo locations and the Act Two starting map
+as tested with their own save. Other maps remain unconfirmed; these tests do not
+establish a complete campaign playthrough.
 Subsequent combat, quest progression and travel remain unverified. Scripts, quests,
 inventory and unrelated native states are not migrated. Cross-map synthetic
 tests cover all 20 recognized targets, old/current layouts, block boundaries,
 misleading marker strings and companion exports. The projectile migration has
-player validation in Scarlet Monastery; its use on other maps remains untested
-in game.
+direct paired forward/reverse validation in Scarlet Monastery. The additional
+successful map tests do not identify which saves needed projectile migration.
 
 Folder listing reads metadata only, so a collection larger than 1 GB is allowed.
 The selected checkpoint and companions are limited to 1 GB and 5,000 files.

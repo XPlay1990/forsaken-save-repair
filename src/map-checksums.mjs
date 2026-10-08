@@ -99,7 +99,7 @@ export const MAP_CHECKSUMS = Object.freeze([
     "current": "e18988c1",
     "oldObserved": "35f0eca7",
     "donorMatched": true,
-    "gameTested": false
+    "gameTested": true
   },
   {
     "id": "undeadre02_01",
@@ -131,7 +131,7 @@ export const MAP_CHECKSUMS = Object.freeze([
     "current": "d156fd27",
     "oldObserved": null,
     "donorMatched": false,
-    "gameTested": false
+    "gameTested": true
   },
   {
     "id": "undeadre02_06",

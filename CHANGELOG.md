@@ -12,8 +12,11 @@
   still match the player-tested repairs; projectile migration on other maps has
   not yet been tested in game.
 - On 2026-10-08, the player reported that every available Neo save works with
-  the current converter. Additional map coverage and full campaign progression
-  were not specified.
+  the current converter, identifying Scarlet Monastery and Dawn's Watch as
+  tested Neo locations and Act Two's starting map as tested with their own save.
+  Full campaign progression remains unverified.
+- Simplify the website's limitations to tested Act One/Two locations, unconfirmed
+  maps and the supported patch. Remove the map-coverage row.
 
 ## v0.1.0-beta.3
 

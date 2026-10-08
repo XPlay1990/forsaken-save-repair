@@ -34,8 +34,11 @@ try{
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
   assert.match(await page.locator('.instruction-list').textContent(),/Back up your campaign folder/);
   assert.match(await page.locator('.instruction-list').textContent(),/replacing the existing files/);
-  assert.match(await page.locator('.limitations-list').textContent(),/all maps in Acts One–Three/);
-  assert.match(await page.locator('.limitations-list').textContent(),/Other areas still need testing/);
+  assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act One/);
+  assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act Two/);
+  assert.match(await page.locator('.limitations-list').textContent(),/Dawn's Watch/);
+  assert.match(await page.locator('.limitations-list').textContent(),/Remain unconfirmed/);
+  assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Map coverage/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
   const todo=await readFile(path.join(root,'todo.md'),'utf8');assert.match(todo,/Arcane Sanctuary/);assert.match(todo,/Act Two/);assert.match(todo,/Act Three/);
   await assert.rejects(readFile(path.join(root,'dist','todo.md')),{code:'ENOENT'});
@@ -124,7 +127,7 @@ try{
       const actual=inspectSave(new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z'))));
       assert.equal(report.reportKind,'analysis');assert.ok(['repair','current'].includes(observed.status));
       assert.equal(observed.mapPath,actual.map);assert.equal(observed.inputChecksum,actual.checksum);assert.equal(observed.build,actual.build);
-      assert.equal(observed.outputChecksum,null);assert.equal(observed.targetChecksum,'e18988c1');assert.equal(observed.mapGameTested,false);
+      assert.equal(observed.outputChecksum,null);assert.equal(observed.targetChecksum,'e18988c1');assert.equal(observed.mapGameTested,true);
       if(await page.locator('#missing-ack').isVisible())await page.locator('#missing-ack').check();
       assert.equal(await page.locator('#export').isEnabled(),true);
       const bundleDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
