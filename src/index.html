@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self'; connect-src 'none'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
-  <meta name="description" content="Recover Forsaken Kingdom Act One save bundles from Warcraft III 3.0.0 for 3.0.1. Repairs run locally in your browser.">
+  <meta name="description" content="Repair Forsaken Kingdom save bundles locally in your browser. Find your campaign folder, select it or a ZIP, and download repaired saves.">
   <meta name="theme-color" content="#101714">
-  <title>Forsaken Save Repair — Act One</title>
+  <title>Forsaken Save Repair</title>
   <link rel="icon" href="./mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./app.mjs"></script>
@@ -14,28 +14,32 @@
 <body>
   <div class="page-grain" aria-hidden="true"></div>
   <header class="masthead">
-    <a class="identity" href="./"><img src="./mark.svg" alt="" width="40" height="40"><span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a>
+    <a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a>
     <div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div>
-    <a class="roadmap-link" href="#roadmap">Quest log</a>
-    <a class="source-link" href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">Source code <span aria-hidden="true">↗</span></a>
   </header>
   <main>
     <section class="intro" aria-labelledby="title">
-      <div><p class="eyebrow">THE FORSAKEN ARCHIVES / ACT ONE</p><h1 id="title">Reclaim your progress.<br><em>Restore the bundle.</em></h1></div>
-      <p class="intro-copy">Select your campaign folder or a ZIP of it. Your browser repairs the main saves and the companion saves used when you travel between maps.</p>
+      <p class="eyebrow">FORSAKEN KINGDOM · ACT ONE · 3.0.0 → 3.0.1</p>
+      <h1 id="title">Reclaim your progress.</h1>
+      <p>Select your campaign folder or a ZIP. The repair runs entirely in your browser.</p>
     </section>
-    <div class="scope-strip"><span class="scope-label">SUPPORTED PATCH</span><strong>3.0.0 <span aria-hidden="true">→</span> 3.0.1</strong><span class="scope-build">Build 24342 · Forsaken Kingdom, Act One</span><span class="scope-status">3 maps verified</span></div>
-    <section class="workspace" aria-label="Repair a save bundle">
+    <section class="workspace" aria-label="Repair your save bundle">
       <div class="work-panel">
-        <div class="panel-heading"><span class="step-number">01</span><h2>Select your bundle</h2><button type="button" class="text-button" id="clear" hidden>Clear selection</button></div>
+        <div class="panel-heading"><span class="step-number">01</span><h2>Upload your bundle</h2><button type="button" class="text-button" id="clear" hidden>Start again</button></div>
+        <div class="bundle-location" id="bundle-location">
+          <h3>Where to find your saves</h3>
+          <p>Open <strong>Documents</strong> in File Explorer, then follow this path:</p>
+          <code class="folder-path">Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code>
+          <p class="location-tip">If your Documents folder is in <strong>OneDrive</strong>, use that folder. Choose your BattleNet account-number folder, then the entire <strong>ForsakenKingdom</strong> folder.</p>
+        </div>
         <div class="drop-zone" id="drop-zone">
-          <svg class="bundle-icon" viewBox="0 0 76 68" fill="none" aria-hidden="true"><path d="M8 21h60v39H8zM8 21V9h23l8 12" stroke="currentColor" stroke-width="1.5"/><path d="M24 32h28v18H24zM31 41h14M38 34v14" stroke="currentColor" stroke-width="1.5"/><path d="M17 4h42M17 65h42" stroke="currentColor" opacity=".35"/></svg>
-          <h3>Your entire <span>ForsakenKingdom</span> folder</h3>
-          <p>Include <code>Blizzard</code>, the main <code>.w3z</code> files, and the campaign cache.</p>
+          <svg class="bundle-icon" viewBox="0 0 76 68" fill="none" aria-hidden="true"><path d="M8 21h60v39H8zM8 21V9h23l8 12" stroke="currentColor" stroke-width="1.5"/><path d="M24 32h28v18H24zM31 41h14M38 34v14" stroke="currentColor" stroke-width="1.5"/></svg>
+          <h3>Select the entire campaign folder</h3>
+          <p>Include the <code>Blizzard</code> folder, all <code>.w3z</code> saves, and the campaign cache files.</p>
           <div class="picker-actions"><button type="button" id="folder-button" class="button primary">Choose folder <span aria-hidden="true">↗</span></button><button type="button" id="zip-button" class="button secondary">Choose ZIP</button></div>
-          <p class="drop-hint">Or drop a ZIP here · Up to 1 GB · Desktop recommended</p>
-          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder">
-          <input type="file" id="zip-input" accept=".zip,application/zip" hidden aria-label="Select zipped campaign bundle">
+          <p class="drop-hint">Or drop a ZIP here · Up to 1 GB</p>
+          <input type="file" id="folder-input" webkitdirectory multiple hidden aria-label="Select ForsakenKingdom folder" aria-describedby="bundle-location">
+          <input type="file" id="zip-input" accept=".zip,application/zip" hidden aria-label="Select zipped campaign bundle" aria-describedby="bundle-location">
         </div>
         <div class="progress-area" id="progress-area" hidden>
           <div class="progress-top"><p id="progress-message" role="status" aria-live="polite">Checking your files…</p><button id="cancel" class="text-button" type="button">Cancel</button></div>
@@ -47,10 +51,9 @@
           <div class="result-stats" id="stats"></div>
           <div class="notice warning" id="unsupported-note" hidden></div>
           <div class="notice warning" id="missing-note" hidden></div>
-          <label class="acknowledge" id="missing-ack-wrap" hidden><input type="checkbox" id="missing-ack"> I understand that missing companion maps may prevent travel.</label>
-          <details class="file-details"><summary>File-by-file checks <span id="checked-count"></span></summary><ul id="file-list" class="file-list"></ul></details>
-          <p class="repair-limit">This repairs map compatibility. It does not update saved quest scripts or fix every gameplay change introduced by the patch.</p>
-          <p class="repair-limit">Supported main saves receive <code>_repaired</code>. Existing suffixes are kept; name collisions receive a number. Companion folders and map snapshots keep their original paths because saves reference them internally.</p>
+          <label class="acknowledge" id="missing-ack-wrap" hidden><input type="checkbox" id="missing-ack"> I understand that missing companion saves may prevent travel.</label>
+          <details class="file-details"><summary>File details <span id="checked-count"></span></summary><ul id="file-list" class="file-list"></ul></details>
+          <p class="repair-limit">Main saves receive <code>_repaired</code>. Keep companion folders and filenames as they are when restoring.</p>
           <button type="button" class="button primary export-button" id="export" disabled>Repair &amp; download ZIP <span aria-hidden="true">↓</span></button>
         </div>
         <div class="success" id="success" hidden>
@@ -59,30 +62,19 @@
           <p class="download-note">Your original files were not changed.</p>
         </div>
       </div>
-      <aside class="map-panel" aria-labelledby="map-title">
-        <div class="panel-heading"><span class="step-number">A1</span><h2 id="map-title">Three verified maps.</h2></div>
-        <p class="map-explanation">A save bundle remembers each visited map separately. Repairing one file alone can leave travel broken.</p>
-        <div class="map-ledger" id="map-ledger">
-          <div class="map-row" data-map="undeadre01"><span class="map-symbol" aria-hidden="true">Ⅰ</span><div><h3>Undercity</h3><p>Includes Tradequarter</p></div><span class="map-state">Waiting</span></div>
-          <div class="map-row" data-map="undeadre01_02"><span class="map-symbol" aria-hidden="true">Ⅱ</span><div><h3>Capital City Ruins</h3><p>Companion map</p></div><span class="map-state">Waiting</span></div>
-          <div class="map-row" data-map="undeadre01_03"><span class="map-symbol" aria-hidden="true">Ⅲ</span><div><h3>Tirisfal Glades</h3><p>Companion map</p></div><span class="map-state">Waiting</span></div>
-        </div>
-        <div class="privacy-note"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 4 6v6c0 5 8 9 8 9s8-4 8-9V6zM8 12l3 3 5-6" stroke="currentColor" stroke-width="1.4"/></svg><div><h3>Local, from start to finish</h3><p>No save uploads, accounts, analytics, or external services. Nothing is stored after you close the page.</p></div></div>
-        <p class="verification-note">Loading, travel between these maps, and saving again were tested on one recovered Act One playthrough.</p>
-        <p class="future-note">Other maps and acts are not supported yet. Their files are copied unchanged.</p>
+      <aside class="instructions-panel" aria-labelledby="instructions-title">
+        <div class="panel-heading"><span class="step-number">?</span><h2 id="instructions-title">How to use it</h2></div>
+        <ol class="instruction-list">
+          <li><h3>Close the game &amp; back up</h3><p>Copy your entire <code>ForsakenKingdom</code> folder somewhere safe before you begin.</p></li>
+          <li><h3>Choose folder or ZIP</h3><p>Select the whole campaign folder. To use a ZIP, right-click the folder in File Explorer and choose <strong>Compress to ZIP file</strong> or <strong>Send to → Compressed (zipped) folder</strong>.</p></li>
+          <li><h3>Repair &amp; download</h3><p>Check the result, then download the repaired ZIP. Your saves stay on your computer throughout.</p></li>
+          <li><h3>Restore the bundle</h3><p>Extract the ZIP, then copy its contents into your original <code>ForsakenKingdom</code> folder. Include <code>Blizzard</code> and keep the directory structure. Companion saves and cache files may replace existing files.</p></li>
+          <li><h3>Load a _repaired save</h3><p>Open Warcraft III, load your repaired checkpoint, and try travelling between locations. Confirm your progress, then save again.</p></li>
+        </ol>
+        <p class="instruction-footnote">Use the complete folder: each visited location can have its own companion save. This tool repairs patch compatibility; some saves or gameplay changes may still be unsupported.</p>
       </aside>
     </section>
-    <section class="roadmap-panel" id="roadmap" aria-labelledby="roadmap-title">
-      <div class="roadmap-heading"><div><p class="eyebrow">RECOVERY QUEST LOG</p><h2 id="roadmap-title">Unfinished business</h2></div><p>Verified maps are ready to repair.<br>The rest remain on our to-do list.</p></div>
-      <ul class="quest-list" id="roadmap-list"></ul>
-      <p class="roadmap-footnote">Pending maps are kept unchanged in your download. A new-patch save alone is not enough to convert an older save.</p>
-    </section>
-    <section class="restore-guide" aria-labelledby="restore-title">
-      <div><p class="eyebrow">AFTER THE DOWNLOAD</p><h2 id="restore-title">Put the bundle back together.</h2></div>
-      <ol><li><span>Close Warcraft III.</span> Make a separate backup of your entire existing campaign folder.</li><li><span>Extract the repaired ZIP.</span> Copy its campaign files into the same <code>ForsakenKingdom</code> folder, including the companion files inside <code>Blizzard</code>. Keep their original paths. Companion snapshots and campaign cache may replace existing files.</li><li><span>Load a _repaired checkpoint, travel, save.</span> Check both destinations and return to Undercity. Confirm your progress, then save under a new name.</li></ol>
-      <details class="location-help"><summary>Where is the campaign folder?</summary><p>Windows: <code>Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code></p><p>The page cannot change this folder. It gives you a new ZIP to restore yourself.</p></details>
-    </section>
   </main>
-  <footer><span>Unofficial community recovery tool. Keep your backup.</span><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>
+  <footer><span>Unofficial community recovery tool.</span><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>
 </body>
 </html>

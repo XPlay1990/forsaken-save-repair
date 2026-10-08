@@ -16,3 +16,7 @@ export function mapProfile(path) {
   const normalized = path.toLowerCase().replaceAll('\\', '/');
   return PROFILE.maps.find(map => normalized === `campaign/forsakenkingdom/${map.id}.w3xd`);
 }
+// A display label supplies no checksum pair and cannot enable conversion.
+export function unsupportedMapName(path){
+  return path.toLowerCase().replaceAll('\\','/')==='campaign/forsakenkingdom/undeadre01_05.w3xd'?'Arcane Sanctuary':undefined;
+}

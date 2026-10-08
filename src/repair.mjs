@@ -1,6 +1,5 @@
 import {Inflate, Deflate, constants} from './vendor/pako.mjs';
-import {PROFILE, mapProfile} from './profiles.mjs';
-import {pendingMapProfile} from './roadmap.mjs';
+import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
 const BLOCK_SIZE=1048576;
@@ -99,9 +98,8 @@ export function inspectSave(input,{onBlock=()=>{}}={}){
   }
   check(pos===data.length,'The save contains unexpected trailing data.');
   const build=u16(data,56);
-  let status='unsupported';let reason='This map is outside the Act One repair profile; it will be copied unchanged.';
-  const pending=pendingMapProfile(info.map);
-  if(pending)reason=`${pending.name} is on the recovery roadmap. A matching pre-patch checksum and gameplay tests are still needed; this save will be copied unchanged.`;
+  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';
+  const unsupportedName=unsupportedMapName(info.map);
   if(supported){
     check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
     check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
@@ -109,7 +107,7 @@ export function inspectSave(input,{onBlock=()=>{}}={}){
     else if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
     else throw new Error('Unrecognized checksum for this Act One map. This may be a different patch; no repair will be guessed.');
   }
-  return {map:info.map,mapId:supported?.id,mapName:supported?.name||pending?.name||info.map.split(/[\\/]/).at(-1),
+  return {map:info.map,mapId:supported?.id,mapName:supported?.name||unsupportedName||info.map.split(/[\\/]/).at(-1),
     checksum:info.checksum,targetChecksum:supported?.current,status,reason,build,blocks:count,
     first,firstEnd,info};
 }
