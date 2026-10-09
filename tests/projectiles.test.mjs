@@ -64,7 +64,8 @@ test('unknown map paths remain outside projectile conversion',()=>{
   assert.equal(result.inspection.status,'unsupported');assert.equal(result.inspection.projectileRepairCount,0);
   assert.deepEqual(result.data,source);
 });
-test('new-engine serialization is outside the old MUdb migration',()=>{
+test('native-resaved build markers still allow a verified old layout to upgrade again',()=>{
   const source=nativeFixture({build:7003,checksum:map.current});
-  assert.equal(inspectSave(source).projectileRepairCount,0);assert.deepEqual(repairSave(source).data,source);
+  assert.equal(inspectSave(source).projectileRepairCount,1);
+  assert.deepEqual(expanded(repairSave(source).data),expanded(nativeFixture({current:true,build:7003,checksum:map.current})));
 });

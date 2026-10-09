@@ -1,8 +1,9 @@
 import {Zip, ZipPassThrough} from './vendor/fflate.mjs';
 import {inspectSave,repairSave,assertUniquePaths} from './repair.mjs';
-import {PROFILE} from './profiles.mjs';
+import {PROFILE,conversionProfile} from './profiles.mjs';
 import {indexFolder,resolveCheckpointBundle,companionReferenceScanner} from './checkpoint-bundle.mjs';
 
+let profile=PROFILE;
 let entries=[];let analysis=[];let inventory=[];let selection=null;
 const MAX_BYTES=1024*1024*1024,MAX_FILES=5000,CHUNK=1024*1024;
 const send=(type,data={})=>self.postMessage({type,...data});
@@ -21,9 +22,9 @@ function buildReport({exported=false,paths=new Map(),changes=[]}={}){
     targetChecksum:row.targetChecksum??null,sourceRevisionKnown:row.sourceRevisionKnown??null,mapGameTested:row.mapGameTested??null,
     build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
     status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null,projectileRepairCount:row.projectileRepairCount??null}));
-  return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:PROFILE.id,target:`${PROFILE.to}.${PROFILE.build}`,
+  return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:profile.id,target:`${profile.to}.${profile.build}`,
     scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',repairMode:analysis.some(row=>row.projectileRepairCount>0)?'identity-and-deathseeker-projectiles':'identity-only',folderPathsPreserved:true,
-    sourcePolicy:PROFILE.sourcePolicy,mapVerification:PROFILE.verification,
+    sourcePolicy:profile.sourcePolicy,mapVerification:profile.verification,
     created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed:[],filenamesPreserved:true,
     unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
     missingCompanions:{folders:selection.missingFolders,files:selection.missingFiles},supportedMapsNotInBundle:stats.missing,
@@ -36,7 +37,7 @@ function exportReport(){
   send('reported',{blob:new Blob([JSON.stringify(metadata,null,2)],{type:'application/json'}),filename:'forsaken-repair-report.json'});
 }
 function summary(rows){
-  const maps=PROFILE.maps.map(map=>({id:map.id,name:map.name,
+  const maps=profile.maps.map(map=>({id:map.id,name:map.name,
     repair:rows.filter(x=>x.mapId===map.id&&x.status==='repair').length,
     current:rows.filter(x=>x.mapId===map.id&&x.status==='current').length}));
   return {maps,repair:rows.filter(x=>x.status==='repair').length,current:rows.filter(x=>x.status==='current').length,
@@ -44,7 +45,8 @@ function summary(rows){
     missing:maps.filter(x=>!x.repair&&!x.current).map(x=>x.name),
     checkpointSupported:!!selection&&rows.some(row=>row.path===selection.path&&['repair','current'].includes(row.status))};
 }
-async function listFolder(files){
+async function listFolder(files,profileId=PROFILE.id){
+  const chosen=conversionProfile(profileId);ensure(chosen,'Unknown conversion target.');profile=chosen;
   const indexed=indexFolder(files);inventory=indexed.entries;entries=[];analysis=[];selection=null;
   ensure(indexed.checkpoints.length>0,'Choose the ForsakenKingdom folder containing your main .w3z saves.');
   send('checkpoints',{checkpoints:indexed.checkpoints});
@@ -58,7 +60,7 @@ async function analyzeCheckpoint(path){
   const bundle=await resolveCheckpointBundle(inventory,path,async entry=>{
     send('progress',{message:`Checking ${entry.path.split('/').at(-1)}`,value:0});
     const scanner=companionReferenceScanner();let inspection,inspectionError;
-    try{inspection=inspectSave(new Uint8Array(await entry.blob.arrayBuffer()),{onExpandedBlock:raw=>scanner.scan(raw)});}
+    try{inspection=inspectSave(new Uint8Array(await entry.blob.arrayBuffer()),{profile,onExpandedBlock:raw=>scanner.scan(raw)});}
     catch(error){inspectionError=error;}
     // Retain only public metadata; expanded blocks can be released before the next file.
     cached.set(entry.path,inspection?{inspection:publicResult(inspection,entry.path,entry.blob.size)}:{inspectionError});
@@ -80,7 +82,7 @@ async function analyzeEntries(cached=new Map()){
     try{
       const stored=cached.get(entry.path);
       if(stored?.inspectionError)throw stored.inspectionError;
-      const result=stored?.inspection||inspectSave(new Uint8Array(await entry.blob.arrayBuffer()));
+      const result=stored?.inspection||inspectSave(new Uint8Array(await entry.blob.arrayBuffer()),{profile});
       analysis.push(publicResult(result,entry.path,entry.blob.size));
     }catch(error){analysis.push(error.inspection?publicResult(error.inspection,entry.path,entry.blob.size):{path:entry.path,size:entry.blob.size,status:'blocked',reason:error.message});}
     send('row',{row:analysis.at(-1)});
@@ -108,7 +110,7 @@ async function exportBundle(){
     send('progress',{message:`Preparing ${entry.path}`,value:100*i/entries.length});
     const row=analysis.find(x=>x.path===entry.path);
     if(row?.status==='repair'){
-      const result=repairSave(new Uint8Array(await blob.arrayBuffer()));
+      const result=repairSave(new Uint8Array(await blob.arrayBuffer()),{profile});
       ensure(result.inspection.checksum===row.checksum,'A save changed since inspection.');
       blob=new Blob([result.data]);
       changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
@@ -132,7 +134,7 @@ async function exportBundle(){
 }
 self.onmessage=async event=>{
   try{
-    if(event.data.type==='listFolder')await listFolder(event.data.files);
+    if(event.data.type==='listFolder')await listFolder(event.data.files,event.data.profileId);
     else if(event.data.type==='checkpoint')await analyzeCheckpoint(event.data.path);
     else if(event.data.type==='export')await exportBundle();
     else if(event.data.type==='report')exportReport();

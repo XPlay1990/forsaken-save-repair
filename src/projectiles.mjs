@@ -1,6 +1,7 @@
 // Donor-checked MUdb layouts across recognized maps. Saved code stays untouched.
 // Player validation: Scarlet (4) loads/resaves/reloads; reverse donor edit crashes.
 import {MAP_CHECKSUMS} from './map-checksums.mjs';
+import {ROLLBACK_MAP_CHECKSUMS} from './rollback-map-checksums.mjs';
 const encoder=new TextEncoder();
 const ESPI=encoder.encode('espi'),TYPE=encoder.encode('lga+bdUM');
 const MODEL=encoder.encode('Abilities\\Weapons\\Arrow\\ArrowMissile.mdl\0');
@@ -54,9 +55,11 @@ function chain(raw,start){
   return {records,end:pos};
 }
 
-export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize}){
+export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize,direction='upgrade'}){
   const map=MAP_CHECKSUMS.find(row=>row.id===mapId);
-  if(!map||map.current!==targetChecksum||build!==7000)return null;
+  const downgrade=direction==='downgrade';
+  const expected=downgrade?ROLLBACK_MAP_CHECKSUMS.find(row=>row.id===mapId)?.checksum:map?.current;
+  if(!map||expected!==targetChecksum||![7000,7003].includes(build))return null;
   const table=allocationTable(raw,payloadSize);
   if(!table)return null;
   const {allocation,size,count,types,missileCount}=table;
@@ -77,19 +80,21 @@ export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize}){
     found++;
     const state=raw.subarray(b.pos+8,b.pos+8+b.size),base=b.pos+8;
     check(find(state,identifier)>=0,'instance object identifier disagrees');
-    if([325,345].includes(b.size)&&read(state,104)===0x42556462&&read(state,140)===0x18006&&find(state,MODEL)===185)continue;
-    check([321,341].includes(b.size)&&read(state,104)===0&&read(state,140)===0&&read(state,100)===0x18006&&find(state,MODEL)===181,'unrecognized MUdb state layout');
+    const current=[325,345].includes(b.size)&&read(state,104)===0x42556462&&read(state,140)===0x18006&&find(state,MODEL)===185;
+    const old=[321,341].includes(b.size)&&read(state,104)===0&&read(state,140)===0&&read(state,100)===0x18006&&find(state,MODEL)===181;
+    check(current||old,'unrecognized MUdb state layout');
+    if(downgrade?old:current)continue;
     const parents=[];
     for(const p of structuralStarts)if(p<b.pos&&p+8+read(raw,p+4)>=base+b.size)parents.push(p);
     check(parents.length===1&&parents[0]===parent,'unverified enclosing record lengths');
-    edits.push({offset:b.pos+4,remove:4,bytes:word(b.size+4)},
-      {offset:base+104,remove:4,bytes:encoder.encode('bdUB')},
-      {offset:base+140,remove:0,bytes:word(0x18006)});
+    edits.push({offset:b.pos+4,remove:4,bytes:word(b.size+(downgrade?-4:4))},
+      {offset:base+104,remove:4,bytes:downgrade?word(0):encoder.encode('bdUB')},
+      {offset:base+140,remove:downgrade?4:0,bytes:downgrade?new Uint8Array():word(0x18006)});
     recordOffsets.push(b.pos);
   }
   check(found===missileCount,'not every MUdb instance was identified');
   if(!recordOffsets.length)return null;
-  const delta=recordOffsets.length*4;
+  const delta=recordOffsets.length*(downgrade?-4:4);
   edits.push({offset:parent+4,remove:4,bytes:word(read(raw,parent+4)+delta)});
   const eris=find(raw,ERIS);check(eris>=0&&eris>parent,'missing saved Lua section');
   const length=read(raw,eris-4);

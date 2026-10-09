@@ -1,5 +1,17 @@
 # Release notes
 
+## Unreleased — rollback preview
+
+- Add restored Warcraft III 3.0.0 targets and a game-version selector. Reverse
+  website-converted saves that were never re-saved by 3.0.1, including the exact
+  Deathseeker record migration. Preserve save names and stored companion paths.
+- Native 3.0.1 re-saves remain unsupported and block bundle exports, including
+  when found in companions. Retain metadata-only reports for these saves.
+- A reversed Scarlet `(4)` matched its original byte for byte and loaded in
+  the restored game. Other downgrade maps and travel remain unconfirmed.
+- Worker and offline browser tests cover inverse projectile conversion,
+  FKManualSaves bundles, target switching and blocked native-save reports.
+
 ## v0.1.0-beta.4
 
 - Detect and migrate the verified old Deathseeker projectile layout on every

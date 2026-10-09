@@ -1,11 +1,35 @@
 # Warcraft III · Forsaken Save Repair
 
-**Public beta · v0.1.0-beta.4.** A static recovery tool for pre-3.0.1 Forsaken
-Kingdom saves, targeting Warcraft III 3.0.1.24342. Select the campaign folder,
+**Public beta · v0.1.0-beta.4.** A static recovery tool for Forsaken
+Kingdom saves. Select the installed game version and campaign folder,
 choose one checkpoint, and download its repaired ZIP. Processing stays in a
 browser worker; there are no save uploads, accounts, telemetry or remote APIs.
 
+## Local rollback preview — not yet published
+
+The 3.0.0 target reverses a website repair for saves that were **not re-saved
+by the 3.0.1 game**. It restores the authenticated rollback map checksums and
+reverses the exact known Deathseeker layout, including companion snapshots.
+Names and stored companion paths remain unchanged. Both the 3.0.1 and restored
+3.0.0 checksums are accepted; other source revisions block downgrade exports.
+
+This does **not** yet downgrade native 3.0.1 saves (serialization build 7003).
+Their format contains additional unit fields and native API references. Changing
+the checksum, projectile layout and build marker did not make them load. Further
+private experiments still failed, so the website blocks these saves and retains
+diagnostic report downloads. A blocked companion also blocks the whole bundle.
+
+Reversing Neo's repaired Scarlet Monastery `(4)` produced the byte-identical
+original, which the player loaded successfully in the restored game. The player
+also re-saved and reloaded fresh 3.0.0 references from `(1)` and `(4)`. Other
+downgrade maps, travel and continued campaign progression remain unconfirmed.
+Installed content metadata lists 3.0.0.24248, while the running executable and
+its crash reports identify 3.0.0.24268; the targets were extracted from that same
+local rollback installation. No game content is shipped.
+
 ## Recovery and companions
+
+The following upgrade behavior targets Warcraft III 3.0.1.24342.
 
 All 20 installed campaign/prologue maps have authenticated, archive-derived
 checksum targets. Identity repair updates both map-checksum fields and the
@@ -14,7 +38,7 @@ unchanged; an unknown main map or invalid container cannot be exported as a
 repaired checkpoint. The serialization build does not identify the source patch.
 Later patches are unsupported.
 
-Build-7000 saves on any recognized campaign/prologue map also receive the
+Saves in the accepted format on any recognized campaign/prologue map receive the
 Deathseeker projectile migration when the exact old `MUdb` layout is present.
 This includes companion snapshots and earlier checksum-only repairs; a
 previously observed source checksum is not required. The source patch still
@@ -24,7 +48,7 @@ observed extra field and restoring the buff identifier. Enclosing lengths and
 container checksums are updated; object identifiers, saved Lua, quests and
 inventory records remain unchanged. Unrecognized projectile layouts block
 conversion. Current layouts are left intact, making repeated repair idempotent.
-Other projectile types, unknown maps and newer serialization builds do not
+Other projectile types, unknown maps and unrecognized serialization builds do not
 receive this native-state migration. Detection validates native tables instead
 of taking the first occurrence of a marker, which may also occur in saved text.
 
@@ -103,7 +127,7 @@ node scripts/browser-check.mjs
 Push `main` to deploy with the included GitHub Pages workflow. The repository
 must enable Pages with GitHub Actions as its source. Dependencies are bundled
 locally with their licenses; see [THIRD_PARTY.md](THIRD_PARTY.md).
-Target metadata is in `src/map-checksums.mjs`; no game archives, scripts, saves
+Target metadata is in `src/map-checksums.mjs` and `src/rollback-map-checksums.mjs`; no game archives, scripts, saves
 or account license material are distributed.
 
 Support: Discord **_xplay** or [the community server](https://discord.gg/MZ63U7E4z).

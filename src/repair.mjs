@@ -77,7 +77,7 @@ export function identity(raw){
   return {map,checksum:hex(checksum),decoded,settingsStart:start,settingsEnd:end,plainOffset};
 }
 
-export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
+export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input);
   check(data.length>=80&&equal(data.subarray(0,28),SIGNATURE),'This is not a supported Warcraft III save container.');
   check(u32(data,28)===68&&u32(data,36)===1,'Unsupported save container version.');
@@ -96,8 +96,8 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
     const comp=data.subarray(pos+12,pos+12+compressed);
     check(blockCRC(comp,expanded)===checksum,`Block ${index+1} has an invalid checksum.`);
     if(index===0){
-      first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map);firstEnd=pos+12+compressed;
-      collectProjectiles=!!supported&&build===7000;
+      first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map,profile);firstEnd=pos+12+compressed;
+      collectProjectiles=!!supported&&profile.serializationBuilds.includes(build);
       if(collectProjectiles)projectiles.scan(first);
       onExpandedBlock(first,index);
     }else if(supported){const raw=inflateBlock(comp,expanded);if(collectProjectiles)projectiles.scan(raw);onExpandedBlock(raw,index);}
@@ -114,27 +114,28 @@ export function inspectSave(input,{onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null;
   try{
     if(supported){
-      check(u32(data,48)===PROFILE.gameIdentifier&&u32(data,52)===PROFILE.gameVersion,'This map uses an unverified save serialization format.');
-      check(PROFILE.serializationBuilds.includes(build),'This save build is outside the tested repair profile.');
+      check(u32(data,48)===profile.gameIdentifier&&u32(data,52)===profile.gameVersion,'This map uses an unverified save serialization format.');
+      check(profile.serializationBuilds.includes(build),profile.direction==='downgrade'&&build===7003?'This save was re-saved by Warcraft III 3.0.1. Native 3.0.1 saves cannot yet be downgraded safely; use an original save from before re-saving.':'This save build is outside the tested repair profile.');
+      if(profile.strictSource)check(details.sourceRevisionKnown,'Downgrade stopped: unverified source map revision.');
       if(collectProjectiles&&projectiles.found){
         nativePayload=new Uint8Array(count*BLOCK_SIZE);nativePayload.set(first);
         for(let index=1,offset=firstEnd;index<count;index++){
           const size=u32(data,offset);nativePayload.set(inflateBlock(data.subarray(offset+12,offset+12+size),BLOCK_SIZE),index*BLOCK_SIZE);offset+=12+size;
         }
-        nativePlan=projectilePlan(nativePayload,{...details,payloadSize});
+        nativePlan=projectilePlan(nativePayload,{...details,payloadSize,direction:profile.direction});
         if(!nativePlan)nativePayload=null;
       }
-      if(info.checksum===supported.current){status='current';reason='Map checksum already matches 3.0.1.';}
-      else {status='repair';reason='Map checksum differs from 3.0.1; ready for checksum repair.';}
-      if(nativePlan){status='repair';reason=`Ready to repair ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
+      if(info.checksum===supported.current){status='current';reason=`Map checksum already matches ${profile.to}.`;}
+      else {status='repair';reason=`Map checksum differs from ${profile.to}; ready for checksum repair.`;}
+      if(nativePlan){status='repair';reason=`Ready to ${profile.direction==='downgrade'?'downgrade':'repair'} ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
     }
   }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
   return {...details,status,reason,first,firstEnd,info,projectileRepairCount:nativePlan?.records||0,nativePlan,nativePayload};
 }
 
-export function repairSave(input){
+export function repairSave(input,{profile=PROFILE}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input);
-  const inspection=inspectSave(data);
+  const inspection=inspectSave(data,{profile});
   if(inspection.status!=='repair')return {data,inspection,changedOffsets:[]};
   const old=inspection.first;const raw=old.slice();const info=inspection.info;
   const decoded=info.decoded.slice();const checksum=unhex(inspection.targetChecksum);
@@ -158,7 +159,7 @@ export function repairSave(input){
     }
     const body=join(parts),header=data.slice(0,68);put32(header,32,68+body.length);put32(header,40,converted.payloadSize);put32(header,44,converted.raw.length/BLOCK_SIZE);put32(header,64,headerCRC(header));
     const repaired=join([header,body]);
-    const verified=inspectSave(repaired);
+    const verified=inspectSave(repaired,{profile});
     check(verified.status==='current'&&verified.projectileRepairCount===0&&verified.checksum===inspection.targetChecksum,'Converted output verification failed.');
     check(equal(repaired.subarray(48,64),data.subarray(48,64)),'Save build or duration changed.');
     return {data:repaired,inspection,changedOffsets,projectileRepairs:inspection.projectileRepairCount};
