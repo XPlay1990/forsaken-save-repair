@@ -6,9 +6,10 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
-import {inspectSave,repairSave} from '../dist/repair.mjs';
+import {inspectSave,repairSave,renameSave} from '../dist/repair.mjs';
 import {fixture} from '../tests/save-fixture.mjs';
 import {nativeFixture,expanded} from '../tests/native-fixture.mjs';
+import {native301Fixture} from '../tests/native301-fixture.mjs';
 import {PROFILE,DOWNGRADE_PROFILE} from '../dist/profiles.mjs';
 const root=fileURLToPath(new URL('../',import.meta.url));
 const output=path.join(root,'.local-tests');await mkdir(output,{recursive:true});
@@ -19,9 +20,19 @@ page.on('request',req=>requests.push({url:req.url(),method:req.method()}));
 page.on('pageerror',error=>errors.push(error.message));
 page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
 try{
-  await page.goto(process.env.PREVIEW_URL||'http://127.0.0.1:4173/');
-  assert.equal(await page.locator('#target-version').inputValue(),'forsaken-all-maps-to-300');
-  await page.locator('#target-version').selectOption('forsaken-all-maps-to-301');
+  const site=process.env.PREVIEW_URL||'http://127.0.0.1:4173/';
+  await page.goto(site);
+  // Downgrade is the default tab; upgrade stays disabled until the 3.0.1 maps return.
+  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true');
+  assert.match(await page.locator('#tab-downgrade').textContent(),/Experimental/);
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-disabled'),'true');
+  await page.locator('#tab-upgrade').click({force:true});
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'false');
+  await page.goto(site+'#upgrade');
+  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true','A disabled tab URL falls back to downgrade');
+  // The upgrade flows below run through the local preview switch.
+  await page.goto(site+'?preview=upgrade#upgrade');
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'true');
   assert.doesNotMatch(await page.locator('body').textContent(),/\ufffd/,'Visible text contains invalid UTF-8 replacement characters');
   assert.match(await page.locator('.identity').textContent(),/WARCRAFT III/);
   assert.match(await page.locator('footer').textContent(),/_xplay/);
@@ -34,8 +45,8 @@ try{
   assert.ok(locationBox.y+locationBox.height<uploadBox.y,'Folder location must appear above upload controls');
   assert.equal(await page.locator('#instructions-title').isVisible(),true);
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
-  assert.match(await page.locator('.instruction-list').textContent(),/Back up your campaign folder/);
-  assert.match(await page.locator('.instruction-list').textContent(),/replacing the existing files/);
+  assert.match(await page.locator('.instruction-list').textContent(),/original saves are not replaced/);
+  assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
   assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act One/);
   assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act Two/);
   assert.match(await page.locator('.limitations-list').textContent(),/Dawn's Watch/);
@@ -78,24 +89,24 @@ try{
     assert.ok(inspected.saves.every(row=>row.mapPath&&row.inputChecksum&&row.build&&row.outputChecksum===null));
     const checkpointDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
-    assert.equal(downloaded.suggestedFilename(),'after_baron-bundle.zip');
+    assert.equal(downloaded.suggestedFilename(),'after_baron_upgraded_3.0.1-bundle.zip');
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
     assert.equal(report.checkpoint.path,selectedPath);assert.equal(report.checkpoint.companionCount,3);
     const mainOutput=report.saves.find(item=>item.file===selectedPath).outputFile;
-    assert.equal(mainOutput,'after_baron.w3z');assert.deepEqual(report.renamed,[]);assert.equal(report.filenamesPreserved,true);
-    const mainParent=selectedPath.slice(0,selectedPath.lastIndexOf('/')+1);
-    assert.equal(mainParent+mainOutput,selectedPath,'Restore must use the selected checkpoint original filename');
+    assert.equal(mainOutput,'after_baron_upgraded_3.0.1.w3z');assert.equal(report.filenamesPreserved,false);
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
-    assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,true);
+    assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,false);
     assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
     assert.ok(report.saves.every(row=>row.inputChecksum&&row.outputChecksum&&row.mapPath&&row.build));
-    assert.ok(report.changed.every(change=>change.changedPayloadOffsets.length<=10&&change.buildPreserved));
+    assert.ok(report.changed.every(change=>!change.changedPayloadOffsets||change.changedPayloadOffsets.length<=10));
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
     assert.equal(snapshots.length,report.checkpoint.companionCount);
-    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron/'),'Original companion folder must be retained');
-    for(const [name,data] of Object.entries(converted)){if(!name.endsWith('.w3z'))continue;const originalPath=name===mainOutput?'after_baron.w3z':name;const original=new Uint8Array(await readFile(path.join(campaign,originalPath)));assert.deepEqual(data,repairSave(original).data,'Export changed bytes outside the checksum-only repair');}
+    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron_upgraded_3.0.1/'),'Companion folder must be renamed with the save');
+    const sourceOf=name=>report.renamed.find(row=>row.to===name)?.from||name;
+    const folders=[['Blizzard/after_baron','Blizzard/after_baron_upgraded_3.0.1'],['FKManualSaves/after_baron','FKManualSaves/after_baron_upgraded_3.0.1']];
+    for(const [name,data] of Object.entries(converted)){if(!name.endsWith('.w3z'))continue;const original=new Uint8Array(await readFile(path.join(campaign,sourceOf(name))));assert.deepEqual(data,renameSave(repairSave(original).data,folders).data,'Export changed bytes outside the repair and folder rename');}
     assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
     await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('#save-search').fill('beforebaron');
@@ -111,9 +122,10 @@ try{
       const beforeZip=unzipSync(new Uint8Array(await readFile(path.join(output,'beforebaron-checksum-only.zip'))));
       const beforeReport=JSON.parse(new TextDecoder().decode(beforeZip['forsaken-repair-report.json']));
       const beforeOutput=beforeReport.saves.find(item=>item.file.endsWith('/beforebaron.w3z')).outputFile;
-      assert.equal(beforeOutput,'beforebaron.w3z');assert.deepEqual(beforeReport.renamed,[]);
+      assert.equal(beforeOutput,'beforebaron_upgraded_3.0.1.w3z');
       assert.equal(beforeReport.repairMode,'identity-only');
-      for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;const originalPath=name===beforeOutput?'beforebaron.w3z':name;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron/'));const original=new Uint8Array(await readFile(path.join(campaign,originalPath)));assert.deepEqual(data,repairSave(original).data);}
+      const beforeFolders=[['Blizzard/beforebaron','Blizzard/beforebaron_upgraded_3.0.1'],['FKManualSaves/beforebaron','FKManualSaves/beforebaron_upgraded_3.0.1']];
+      for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron_upgraded_3.0.1/'));const original=new Uint8Array(await readFile(path.join(campaign,beforeReport.renamed.find(row=>row.to===name).from)));assert.deepEqual(data,renameSave(repairSave(original).data,beforeFolders).data);}
       await page.locator('#another-save').click();
     }
     await page.locator('#save-search').fill('Act Two - Undercity');
@@ -138,10 +150,11 @@ try{
       const exportedReport=JSON.parse(new TextDecoder().decode(zipped['forsaken-repair-report.json']));
       const outputRow=exportedReport.saves.find(row=>row.file===exportedReport.checkpoint.path);
       const original=new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z')));
-      assert.deepEqual(zipped[outputRow.outputFile],repairSave(original).data);
+      assert.equal(outputRow.outputFile,'Act Two - Undercity_upgraded_3.0.1.w3z');
+      assert.equal(inspectSave(zipped[outputRow.outputFile]).checksum,'e18988c1');
       assert.equal(outputRow.outputChecksum,'e18988c1');
     }
-    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; existing names, search and offline download passed.`);
+    console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; renamed outputs, search and offline download passed.`);
   }
   if(process.env.SCARLET_FIXTURE_DIR){
     const folder=path.join(output,'scarlet-input','ForsakenKingdom'),stored='FKManualSaves/Act Two - The Scarlet Monastery (4)',main='renamed (4).w3z';
@@ -162,9 +175,11 @@ try{
     const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const file=await download,zipPath=path.join(output,'scarlet-site-export.zip');await file.saveAs(zipPath);
     const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
-    assert.deepEqual(Object.keys(zip).sort(),[main,stored+'/UndeadRE02.w3z','forsaken-repair-report.json'].sort());
-    const hash=data=>createHash('sha256').update(data).digest('hex');assert.equal(hash(zip[main]),hash(expected));
-    assert.equal(hash(zip[stored+'/UndeadRE02.w3z']),hash(companion));
+    const out='renamed (4)_upgraded_3.0.1.w3z',outFolder='FKManualSaves/renamed (4)_upgraded_3.0.1';
+    assert.deepEqual(Object.keys(zip).sort(),[out,outFolder+'/UndeadRE02.w3z','forsaken-repair-report.json'].sort());
+    const hash=data=>createHash('sha256').update(data).digest('hex');
+    assert.equal(hash(zip[out]),hash(renameSave(new Uint8Array(expected),[[stored,outFolder]]).data));
+    assert.equal(hash(zip[outFolder+'/UndeadRE02.w3z']),hash(companion));
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.repairMode,'identity-and-deathseeker-projectiles');assert.equal(report.changed[0].projectileRepairs,2);
     await page.screenshot({path:path.join(output,'scarlet-export.png'),fullPage:true});
@@ -183,10 +198,12 @@ try{
     const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const file=await download,zipPath=path.join(output,'cross-map-site-export.zip');await file.saveAs(zipPath);
     const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
-    assert.deepEqual(Object.keys(zip).sort(),[main,snapshot,'forsaken-repair-report.json'].sort());
+    const out='Anya checkpoint_upgraded_3.0.1.w3z',outFolder='FKManualSaves/Anya checkpoint_upgraded_3.0.1',outSnapshot=outFolder+'/UndeadRE03b.w3z';
+    assert.deepEqual(Object.keys(zip).sort(),[out,outSnapshot,'forsaken-repair-report.json'].sort());
     const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
-    assert.equal(hash(expanded(zip[main])),hash(expanded(nativeFixture({map:mainMap,current:true,checksum:mainMap.current,decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')}))));
-    assert.equal(hash(expanded(zip[snapshot])),hash(expanded(nativeFixture({map:companionMap,current:true,checksum:companionMap.current}))));
+    const expectedMain=nativeFixture({map:mainMap,current:true,checksum:mainMap.current,decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')});
+    assert.equal(hash(expanded(zip[out])),hash(expanded(renameSave(expectedMain,[[stored,outFolder]]).data)));
+    assert.equal(hash(expanded(zip[outSnapshot])),hash(expanded(nativeFixture({map:companionMap,current:true,checksum:companionMap.current}))));
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.repairMode,'identity-and-deathseeker-projectiles');assert.ok(report.saves.every(row=>row.projectileRepairCount===1&&row.sourceRevisionKnown===false));
     assert.ok(report.changed.every(row=>row.projectileRepairs===1));
@@ -203,9 +220,9 @@ try{
     await page.locator('#clear').click();await page.locator('#folder-input').setInputFiles(folder);
     await page.locator('#save-picker').waitFor({state:'visible'});
     // Reuse the selected folder when the user changes game version.
-    await page.locator('#target-version').selectOption(profile.id);
+    await page.locator('#tab-downgrade').click();
     await page.locator('#save-picker').waitFor({state:'visible'});
-    assert.match(await page.locator('#target-note').textContent(),/not supported yet/);
+    assert.match(await page.locator('#target-note').textContent(),/saved in the game/);
     assert.equal(await page.locator('#tested-act-one').isVisible(),false);
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible',timeout:120000});
@@ -216,16 +233,17 @@ try{
     const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const file=await download,destination=path.join(output,'downgrade-site-export.zip');await file.saveAs(destination);
     const zip=unzipSync(new Uint8Array(await readFile(destination)));
-    assert.deepEqual(Object.keys(zip).sort(),[main,snapshot,'forsaken-repair-report.json'].sort());
-    assert.deepEqual(zip[main],repairSave(input,{profile}).data);
-    assert.deepEqual(zip[snapshot],repairSave(companion,{profile}).data);
+    const out='Renamed (4)_downgraded_3.0.0.w3z',outFolder='FKManualSaves/Renamed (4)_downgraded_3.0.0';
+    assert.deepEqual(Object.keys(zip).sort(),[out,outFolder+'/UndeadRE02.w3z','forsaken-repair-report.json'].sort());
+    assert.deepEqual(zip[out],renameSave(repairSave(input,{profile}).data,[[stored,outFolder]],{profile}).data);
+    assert.deepEqual(zip[outFolder+'/UndeadRE02.w3z'],repairSave(companion,{profile}).data);
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.profile,profile.id);assert.equal(report.target,`${profile.to}.${profile.build}`);
-    assert.equal(report.folderPathsPreserved,true);assert.equal(report.filenamesPreserved,true);
+    assert.equal(report.folderPathsPreserved,false);assert.equal(report.filenamesPreserved,false);
     assert.ok(report.changed.every(row=>row.projectileRepairs===1));
     await page.screenshot({path:path.join(output,'downgrade-export.png'),fullPage:true});
     await context.setOffline(false);
-    await page.locator('#target-version').selectOption(PROFILE.id);
+    await page.locator('#tab-upgrade').click();
     await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible'});
@@ -233,18 +251,32 @@ try{
     assert.match(await page.locator('#export').textContent(),/Download checked save/);
     const blocked=path.join(output,'downgrade-blocked','ForsakenKingdom');await mkdir(blocked,{recursive:true});
     await writeFile(path.join(blocked,'Native.w3z'),fixture(map,map.old,7003).data);
-    await page.locator('#clear').click();await page.locator('#target-version').selectOption(profile.id);
+    await page.locator('#clear').click();await page.locator('#tab-downgrade').click();
     await page.locator('#folder-input').setInputFiles(blocked);
     await page.locator('.checkpoint-choice').filter({hasText:'Native'}).click();
     await page.locator('#results').waitFor({state:'visible'});
     assert.equal(await page.locator('#export').isEnabled(),false);
-    assert.match(await page.locator('#file-list').textContent(),/re-saved by Warcraft III 3.0.1/);
+    assert.match(await page.locator('#file-list').textContent(),/Native 3.0.1 downgrade stopped/);
     const reportDownload=page.waitForEvent('download');await page.locator('#report').click();
     const reportFile=await reportDownload;await reportFile.saveAs(path.join(output,'downgrade-blocked.json'));
     const blockedReport=JSON.parse(await readFile(path.join(output,'downgrade-blocked.json'),'utf8'));
     assert.equal(blockedReport.profile,profile.id);assert.equal(blockedReport.saves[0].build,7003);
     assert.equal(blockedReport.saves[0].outputChecksum,null);
-    console.log('Downgrade and target switching passed: stored companion paths/names retained, offline ZIP validated, native 3.0.1 resaves blocked with reports available.');
+    // A save written by 3.0.1 itself, with a pending trigger wait, converts in the browser too.
+    const native=path.join(output,'native-downgrade','ForsakenKingdom');await mkdir(native,{recursive:true});
+    const nativeSave=native301Fixture({map,waits:[2]});await writeFile(path.join(native,'Played.w3z'),nativeSave);
+    await page.locator('#clear').click();await page.locator('#tab-downgrade').click();
+    await page.locator('#folder-input').setInputFiles(native);
+    await page.locator('.checkpoint-choice').filter({hasText:'Played'}).click();
+    await page.locator('#results').waitFor({state:'visible',timeout:120000});
+    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+    assert.match(await page.locator('#file-list').textContent(),/Saved by Warcraft III 3.0.1/);
+    const nativeDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
+    const nativeFile=await nativeDownload,nativeZip=path.join(output,'native-downgrade.zip');await nativeFile.saveAs(nativeZip);
+    const nativeOut=unzipSync(new Uint8Array(await readFile(nativeZip)));
+    assert.deepEqual(nativeOut['Played_downgraded_3.0.0.w3z'],repairSave(nativeSave,{profile}).data);
+    assert.equal(JSON.parse(new TextDecoder().decode(nativeOut['forsaken-repair-report.json'])).repairMode,'native-3.0.1-downgrade');
+    console.log('Downgrade and target switching passed: outputs renamed to <name>_downgraded_3.0.0 with stored companion paths rewritten, offline ZIP validated, a 3.0.1-written save converted, structurally unknown 3.0.1 saves blocked with reports available.');
   }
   assert.equal(requests.every(req=>new URL(req.url).hostname==='127.0.0.1'&&req.method==='GET'),true,'Unexpected external or upload request');
   assert.deepEqual(errors,[],'Browser errors');

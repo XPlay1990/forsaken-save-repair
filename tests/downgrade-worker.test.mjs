@@ -2,23 +2,24 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {unzipSync} from 'fflate';
 import {PROFILE,DOWNGRADE_PROFILE} from '../dist/profiles.mjs';
-import {repairSave} from '../dist/repair.mjs';
+import {repairSave,renameSave} from '../dist/repair.mjs';
 import {nativeFixture} from './native-fixture.mjs';
 import {fixture} from './save-fixture.mjs';
 const make=(path,data)=>{const file=new File([data],path.split('/').at(-1));Object.defineProperty(file,'webkitRelativePath',{value:path});return file;};
 
-test('downgrade worker reverses the checkpoint and stored FKManualSaves companions, retaining names and paths',async()=>{
+test('downgrade worker reverses the checkpoint and stored FKManualSaves companions into <name>_downgraded_3.0.0',async()=>{
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?downgrade-bundle');
     const profile=DOWNGRADE_PROFILE,map=profile.maps.find(row=>row.id==='undeadre02_06');
-    const main='Scarlet (4).w3z',folder='FKManualSaves/Original (4)',snapshot=folder+'/UndeadRE02.w3z';
+    const input='Scarlet (4).w3z',folder='FKManualSaves/Original (4)',source=folder+'/UndeadRE02.w3z';
+    const main='Scarlet (4)_downgraded_3.0.0.w3z',newFolder='FKManualSaves/Scarlet (4)_downgraded_3.0.0',snapshot=newFolder+'/UndeadRE02.w3z';
     const original=nativeFixture({map,checksum:map.old,current:true,companionPath:folder.replaceAll('/','\\')});
     const companionMap=profile.maps.find(row=>row.id==='undeadre02');
     const companion=nativeFixture({map:companionMap,checksum:companionMap.old,current:true});
-    const files=[make('ForsakenKingdom/'+main,original),make('ForsakenKingdom/'+snapshot,companion),make('ForsakenKingdom/Unrelated.w3z',original)];
+    const files=[make('ForsakenKingdom/'+input,original),make('ForsakenKingdom/'+source,companion),make('ForsakenKingdom/Unrelated.w3z',original)];
     await self.onmessage({data:{type:'listFolder',profileId:profile.id,files}});
-    await self.onmessage({data:{type:'checkpoint',path:'ForsakenKingdom/'+main}});
+    await self.onmessage({data:{type:'checkpoint',path:'ForsakenKingdom/'+input}});
     assert.equal(messages.at(-1).type,'analyzed');
     assert.equal(messages.at(-1).summary.blocked,0);
     assert.equal(messages.at(-1).rows.length,2);
@@ -26,11 +27,11 @@ test('downgrade worker reverses the checkpoint and stored FKManualSaves companio
     assert.equal(messages.at(-1).type,'exported',messages.at(-1).message);
     const zip=unzipSync(new Uint8Array(await messages.at(-1).blob.arrayBuffer()));
     assert.deepEqual(Object.keys(zip).sort(),[main,snapshot,'forsaken-repair-report.json'].sort());
-    assert.deepEqual(zip[main],repairSave(original,{profile}).data);
+    assert.deepEqual(zip[main],renameSave(repairSave(original,{profile}).data,[[folder,newFolder]],{profile}).data);
     assert.deepEqual(zip[snapshot],repairSave(companion,{profile}).data);
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.profile,profile.id);assert.equal(report.target,`${profile.to}.${profile.build}`);
-    assert.equal(report.filenamesPreserved,true);assert.equal(report.folderPathsPreserved,true);
+    assert.equal(report.filenamesPreserved,false);assert.equal(report.folderPathsPreserved,false);
     assert.equal(report.changed.length,2);assert.ok(report.changed.every(row=>row.projectileRepairs===1));
     assert.ok(report.saves.every(row=>row.outputChecksum===profile.maps.find(map=>map.id===row.mapId).current));
   }finally{delete globalThis.self;}
@@ -41,7 +42,7 @@ test('native 3.0.1 companions and unverified revisions block downgrade exports b
   try{
     await import('../dist/worker.mjs?downgrade-blocked');
     const profile=DOWNGRADE_PROFILE,map=profile.maps.find(row=>row.id==='undeadre02_06');
-    for(const [build,checksum,reason] of [[7003,map.old,/re-saved by Warcraft III 3.0.1/],[7000,'11223344',/unverified source map revision/]]){
+    for(const [build,checksum,reason] of [[7003,map.old,/Native 3.0.1 downgrade stopped/],[7000,'11223344',/unverified source map revision/]]){
       const main=fixture(map,map.old,7000,{records:[{offset:2048,text:'FKManualSaves\\Slot'}]}).data;
       const files=[make('ForsakenKingdom/Slot.w3z',main),make('ForsakenKingdom/FKManualSaves/Slot/UndeadRE02_06.w3z',fixture(map,checksum,build).data)];
       await self.onmessage({data:{type:'listFolder',profileId:profile.id,files}});

@@ -1,10 +1,16 @@
 // Donor-checked MUdb layouts across recognized maps. Saved code stays untouched.
 // Player validation: Scarlet (4) loads/resaves/reloads; reverse donor edit crashes.
-import {MAP_CHECKSUMS} from './map-checksums.mjs';
-import {ROLLBACK_MAP_CHECKSUMS} from './rollback-map-checksums.mjs';
+import {mapById} from './map-versions.mjs';
 const encoder=new TextEncoder();
 const ESPI=encoder.encode('espi'),TYPE=encoder.encode('lga+bdUM');
 const MODEL=encoder.encode('Abilities\\Weapons\\Arrow\\ArrowMissile.mdl\0');
+// A projectile's model path is printable and ends in .mdl/.mdx with a terminating zero.
+function modelAt(state,at){
+  const end=state.indexOf(0,at);
+  if(end<at+5)return false;
+  const path=state.subarray(at,end);
+  return path.every(x=>x>=32&&x<127)&&/\.md[lx]$/i.test(new TextDecoder().decode(path));
+}
 const ERIS=Uint8Array.from([69,82,73,83,4,82,6,158,191,4,4,8]);
 const same=(a,b)=>a.length===b.length&&a.every((byte,i)=>byte===b[i]);
 const check=(ok,message)=>{if(!ok)throw Error(`Projectile conversion stopped: ${message}`);};
@@ -56,9 +62,9 @@ function chain(raw,start){
 }
 
 export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize,direction='upgrade'}){
-  const map=MAP_CHECKSUMS.find(row=>row.id===mapId);
+  const map=mapById(mapId);
   const downgrade=direction==='downgrade';
-  const expected=downgrade?ROLLBACK_MAP_CHECKSUMS.find(row=>row.id===mapId)?.checksum:map?.current;
+  const expected=map?.checksums[downgrade?'3.0.0':'3.0.1'];
   if(!map||expected!==targetChecksum||![7000,7003].includes(build))return null;
   const table=allocationTable(raw,payloadSize);
   if(!table)return null;
@@ -80,10 +86,13 @@ export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize,direc
     found++;
     const state=raw.subarray(b.pos+8,b.pos+8+b.size),base=b.pos+8;
     check(find(state,identifier)>=0,'instance object identifier disagrees');
-    const current=[325,345].includes(b.size)&&read(state,104)===0x42556462&&read(state,140)===0x18006&&find(state,MODEL)===185;
-    const old=[321,341].includes(b.size)&&read(state,104)===0&&read(state,140)===0&&read(state,100)===0x18006&&find(state,MODEL)===181;
+    // 3.0.1 projectiles of every model insert 0x18006 at 140 (model path 181 -> 185) and carry BUdb.
+    const current=read(state,100)===0x18006&&read(state,104)===0x42556462&&read(state,140)===0x18006&&modelAt(state,185);
+    const old=read(state,100)===0x18006&&read(state,140)===0&&modelAt(state,181);
     check(current||old,'unrecognized MUdb state layout');
     if(downgrade?old:current)continue;
+    // Adding BUdb is verified only for Deathseeker arrows, which have no buff before 3.0.1.
+    if(!downgrade)check([321,341].includes(b.size)&&read(state,104)===0&&find(state,MODEL)===181,'unrecognized MUdb state layout');
     const parents=[];
     for(const p of structuralStarts)if(p<b.pos&&p+8+read(raw,p+4)>=base+b.size)parents.push(p);
     check(parents.length===1&&parents[0]===parent,'unverified enclosing record lengths');

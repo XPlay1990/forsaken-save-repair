@@ -11,10 +11,10 @@
   <div class="page-grain" aria-hidden="true"></div>
   <header class="masthead"><a class="identity" href="./"><img src="./mark.svg" alt="" width="44" height="44"><span><span class="brand-game">WARCRAFT III</span>FORSAKEN<span class="brand-sub">SAVE REPAIR</span></span></a><div class="local-badge"><span aria-hidden="true"></span> Files stay on your device</div></header>
   <main>
-    <section class="intro" aria-labelledby="title"><p class="eyebrow">FORSAKEN KINGDOM · ALL ACTS · SAVE CONVERTER</p><h1 id="title">Reclaim your progress.</h1><p>Choose your folder. Pick a save. Get back to playing.</p></section>
+    <section class="intro" aria-labelledby="title"><p class="eyebrow">FORSAKEN KINGDOM · SAVE CONVERTER</p><h1 id="title">Reclaim your progress.</h1><p>Choose your folder. Pick a save. Get back to playing.</p></section>
     <section class="workspace" aria-label="Repair a checkpoint">
       <div class="work-panel">
-        <div class="target-switch"><label for="target-version">Your Warcraft III version</label><select id="target-version"><option value="forsaken-all-maps-to-300" selected>3.0.0 — restored version</option><option value="forsaken-all-maps-to-301">3.0.1</option></select><p id="target-note">Restore saves repaired for 3.0.1. In-game 3.0.1 saves are not supported yet.</p></div>
+        <div class="target-switch"><div class="mode-tabs" role="tablist" aria-label="Conversion direction"><a class="mode-tab" role="tab" id="tab-downgrade" href="#downgrade" data-profile="forsaken-all-maps-to-300" aria-selected="true"><span>Downgrade <em class="experimental">Experimental</em></span><small>3.0.1 → 3.0.0</small></a><a class="mode-tab" role="tab" id="tab-upgrade" href="#upgrade" data-profile="forsaken-all-maps-to-301" aria-selected="false"><span>Upgrade</span><small>3.0.0 → 3.0.1</small></a></div><p id="target-note">Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.</p></div>
         <div class="panel-heading"><span class="step-number" id="step-number">01</span><h2 id="step-label">Choose your folder</h2><button type="button" class="text-button" id="clear" hidden>Change folder</button></div>
         <div class="bundle-location" id="bundle-location"><h3>Find your campaign folder</h3><code class="folder-path">Documents\Warcraft III\BattleNet\&lt;account-number&gt;\Campaigns\ForsakenKingdom</code><p class="location-tip">Open <strong>Documents</strong> in File Explorer. If it's in <strong>OneDrive</strong>, look there.</p></div>
         <div class="drop-zone" id="drop-zone">
@@ -37,16 +37,16 @@
         <div class="success" id="success" hidden><h2>Bundle ready.</h2><p id="success-copy"></p><a id="download" class="text-button" download="ForsakenKingdom-bundle.zip">Download again ↓</a></div>
         <button id="another-save" class="text-button another-save" type="button" hidden>Choose another save</button>
       </div>
-      <aside class="instructions-panel" aria-labelledby="instructions-title"><div class="panel-heading"><h2 id="instructions-title">After the download</h2></div><ol class="instruction-list"><li><h3>Close Warcraft III</h3><p>Back up your campaign folder.</p></li><li><h3>Extract &amp; copy back</h3><p>Copy the ZIP contents into <code>ForsakenKingdom</code>, replacing the existing files. All names stay unchanged.</p></li><li><h3>Load your save</h3><p>Try travelling between locations, then save again.</p></li></ol></aside>
+      <aside class="instructions-panel" aria-labelledby="instructions-title"><div class="panel-heading"><h2 id="instructions-title">After the download</h2></div><ol class="instruction-list"><li><h3>Close Warcraft III</h3><p>Your original saves are not replaced.</p></li><li><h3>Extract &amp; copy</h3><p>Copy the ZIP contents into <code>ForsakenKingdom</code>. The converted save is named <code>&lt;name&gt;_downgraded_3.0.0</code> (or <code>_upgraded_3.0.1</code>), with its companion folder renamed to match.</p></li><li><h3>Load the converted save</h3><p>Try travelling between locations, then save again.</p></li></ol></aside>
     </section>
     <section class="limitations-panel" aria-labelledby="limitations-title">
       <div class="panel-heading"><h2 id="limitations-title"><span aria-hidden="true">⚠</span> Current limitations</h2></div>
       <dl class="limitations-list">
         <div id="tested-act-one"><dt>Tested — Act One</dt><dd>Undercity / Trade Quarter, Tirisfal Glades and Capital City Ruins.</dd></div>
-        <div><dt id="tested-act-two-title">Downgrade testing</dt><dd id="tested-act-two-copy">Scarlet Monastery: a reversed repair loaded successfully.</dd></div>
+        <div><dt id="tested-act-two-title">Downgrade testing</dt><dd id="tested-act-two-copy">Scarlet Monastery (six checkpoints, saved and reloaded), Cathedral with map travel, and an Act One progress save.</dd></div>
         <div><dt>Other maps</dt><dd>Remain unconfirmed.</dd></div>
       </dl>
-      <p class="limitations-scope" id="target-limitations">For saves converted to 3.0.1 without re-saving in the game. Saves re-saved by 3.0.1 are currently blocked. Targets restored Warcraft III 3.0.0. A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.</p>
+      <p class="limitations-scope" id="target-limitations">Targets restored Warcraft III 3.0.0. Saves whose scripts come from the 3.0.1 version of a map are blocked. Large saves can take a minute. A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.</p>
     </section>
   </main>
   <footer><span>Unofficial community recovery tool.</span><div class="contact">Need help? Discord: <strong>_xplay</strong> · <a href="https://discord.gg/MZ63U7E4z" target="_blank" rel="noopener noreferrer">Join the server ↗</a></div><div><a href="./THIRD_PARTY.txt">Library licenses</a><a href="https://github.com/XPlay1990/forsaken-save-repair" target="_blank" rel="noopener noreferrer">GitHub ↗</a></div></footer>

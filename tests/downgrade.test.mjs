@@ -49,7 +49,7 @@ test('downgrade validates structural markers and split projectile types across b
   assert.equal(hash(expanded(result.data)),hash(expanded(nativeFixture({...options,checksum:map.current}))));
 });
 
-test('native 3.0.1 resaves remain blocked after confirmed loading failures',()=>{
+test('3.0.1 saves without the validated native structure are blocked rather than relabelled',()=>{
   const profile=profiles.DOWNGRADE_PROFILE,map=profile.maps.find(row=>row.id==='undeadre02_06');
-  assert.throws(()=>repairSave(nativeFixture({map,current:true,checksum:map.old,build:7003}),{profile}),/re-saved by Warcraft III 3.0.1/);
+  assert.throws(()=>repairSave(nativeFixture({map,current:true,checksum:map.old,build:7003}),{profile}),/Native 3.0.1 downgrade stopped/);
 });

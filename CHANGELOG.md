@@ -1,16 +1,39 @@
 # Release notes
 
-## Unreleased — rollback preview
+## v0.1.0-beta.5 — experimental downgrade to restored 3.0.0
 
-- Add restored Warcraft III 3.0.0 targets and a game-version selector. Reverse
-  website-converted saves that were never re-saved by 3.0.1, including the exact
-  Deathseeker record migration. Preserve save names and stored companion paths.
-- Native 3.0.1 re-saves remain unsupported and block bundle exports, including
-  when found in companions. Retain metadata-only reports for these saves.
-- A reversed Scarlet `(4)` matched its original byte for byte and loaded in
-  the restored game. Other downgrade maps and travel remain unconfirmed.
-- Worker and offline browser tests cover inverse projectile conversion,
-  FKManualSaves bundles, target switching and blocked native-save reports.
+Blizzard reverted patch 3.0.1. This release adds an **experimental** downgrade to
+the restored 3.0.0 game; the upgrade direction stays available in code but its tab
+is disabled until the 3.0.1 maps return (`?preview=upgrade` locally).
+
+- Downgrade/Upgrade tabs replace the version selector; Downgrade is the default
+  and marked Experimental. Reports carry `experimental: true`.
+- Downgrade saves written by Warcraft III 3.0.1 (build 7003): map renamed natives
+  back to 3.0.0, remove unused 3.0.1-only native bindings, renumber saved Lua
+  references, rewrite the Lua record header (which lists pending trigger waits),
+  remove the 3.0.1 unit fields (zero dword 665 bytes before the end and a 16-byte
+  suffix), the camera field and the projectile field of any missile model, and
+  restore the 3.0.0 checksum and build 7000. Saved Lua is parsed, never executed.
+- Saves whose scripts come from the 3.0.1 version of a map get 3.0.0 fallbacks for
+  the 3.0.1-only functions they call (BlzRemoveEffect → DestroyEffect,
+  ChooseRandomItemExWithFilterAndIncludes → ChooseRandomItemExWithFilter, camera
+  target lock and BlzUnitHeal → DoNothing); each fallback is listed per save.
+  Natives without a fallback and unknown layouts block the bundle with a report.
+- Website repairs of original saves (build 7000) are reversed exactly, including
+  the Deathseeker record migration.
+- Outputs are named `<name>_downgraded_3.0.0` (or `<name>_upgraded_3.0.1`) and the
+  companion folder is renamed to match; the folder paths stored in the saved Lua
+  are rewritten with correct Lua lengths. Extracting the ZIP never replaces the
+  original checkpoint.
+- One table (`src/map-versions.mjs`) holds every map's checksum per patch;
+  both conversion directions derive from it.
+
+Player validation in restored 3.0.0: six Scarlet Monastery checkpoints saved in
+3.0.1 (start to the later boss state) loaded, saved and reloaded; the renamed
+Cathedral `before_Act_2` bundle (with its four Act One zone snapshots) and
+`act1_progress_after_patch` worked. A Cathedral save made just before the boss transition
+(`before_Act_2_2`) loads with missing doodad and cliff models; this is under
+investigation. Other maps remain unconfirmed.
 
 ## v0.1.0-beta.4
 

@@ -13,11 +13,31 @@ reverses the exact known Deathseeker layout, including companion snapshots.
 Names and stored companion paths remain unchanged. Both the 3.0.1 and restored
 3.0.0 checksums are accepted; other source revisions block downgrade exports.
 
-This does **not** yet downgrade native 3.0.1 saves (serialization build 7003).
-Their format contains additional unit fields and native API references. Changing
-the checksum, projectile layout and build marker did not make them load. Further
-private experiments still failed, so the website blocks these saves and retains
-diagnostic report downloads. A blocked companion also blocks the whole bundle.
+Saves written by the 3.0.1 game itself (serialization build 7003) are converted
+as well (`src/native-downgrade.mjs`):
+
+- map 18 natives renamed in 3.0.1 back to their 3.0.0 names, and remove nine
+  3.0.1-only native bindings only when nothing besides their `_G` entry uses
+  them; saved Lua references are renumbered and the graph is re-read to verify;
+- remove the 3.0.1 unit fields (a zero dword 665 bytes before the end and a
+  16-byte suffix), reverse the Deathseeker projectile layout and remove the
+  four-byte camera field at state offset 304;
+- rewrite the lengths of the record around the saved Lua, whose header lists
+  pending trigger waits, then restore the 3.0.0 checksum and build 7000.
+
+Saves whose scripts come from the 3.0.1 version of a map (for example Act Two
+started after the patch) call some 3.0.1-only natives inside 3.0.1 `blizzard.j`
+helpers. Those globals are rebound to the closest 3.0.0 behaviour and reported:
+`BlzRemoveEffect` → `DestroyEffect`, `ChooseRandomItemExWithFilterAndIncludes` →
+`ChooseRandomItemExWithFilter`, `BlzSetThematicMusicAbsoluteVolume` →
+`SetThematicMusicVolume`, and `BlzSetCameraAllowsHotkeyTargetLock` / `BlzUnitHeal`
+→ the map's `DoNothing`. This path is not yet tested in game.
+
+Saved Lua is parsed as data and never executed. Saves calling a 3.0.1-only native
+without a fallback, and unrecognized layouts, are blocked; a blocked companion blocks the whole bundle. Six Scarlet
+Monastery checkpoints saved in 3.0.1, from the start to the later boss state,
+loaded in restored 3.0.0 and could be saved and reloaded. The browser output is
+byte-identical to those tested files (`scripts/check-private-native.mjs`).
 
 Reversing Neo's repaired Scarlet Monastery `(4)` produced the byte-identical
 original, which the player loaded successfully in the restored game. The player
@@ -62,10 +82,15 @@ directories stop selection. Companion contents cannot expand the selection into
 other checkpoints; working `Zones` folders are excluded.
 
 Without a stored path, the tool retains the legacy same-name Blizzard-folder
-fallback, including older `_repaired` filenames. Input filenames, companion
-folders and serialized paths are preserved. Close the game, back up the campaign
-folder, and copy the ZIP contents into it. The download itself leaves originals
-unchanged. Test loading and travel, then save again under a new name.
+fallback, including older `_repaired` filenames.
+
+Outputs are named `<name>_downgraded_3.0.0` or `<name>_upgraded_3.0.1`, and the
+companion folder (`Blizzard<name>` or `FKManualSaves<name>`) is renamed to match,
+so copying the ZIP into the campaign folder never replaces the original checkpoint.
+The campaign script stores that folder as Lua strings in the main save; those strings
+are rewritten (`src/save-rename.mjs`) and the saved Lua is re-read with all three Lua
+lengths updated. An earlier rename attempt changed the strings without the Lua
+lengths, which is why it crashed. Test loading and travel, then save again.
 
 Reports contain relative paths, identity/format metadata, projectile repair
 counts and missing companions. They include no expanded gameplay data. A report
@@ -127,7 +152,7 @@ node scripts/browser-check.mjs
 Push `main` to deploy with the included GitHub Pages workflow. The repository
 must enable Pages with GitHub Actions as its source. Dependencies are bundled
 locally with their licenses; see [THIRD_PARTY.md](THIRD_PARTY.md).
-Target metadata is in `src/map-checksums.mjs` and `src/rollback-map-checksums.mjs`; no game archives, scripts, saves
+Map names and per-patch checksums are in `src/map-versions.mjs` (one row per map, one checksum column per patch; conversion profiles in `src/profiles.mjs` derive from it); no game archives, scripts, saves
 or account license material are distributed.
 
 Support: Discord **_xplay** or [the community server](https://discord.gg/MZ63U7E4z).

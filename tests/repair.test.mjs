@@ -11,7 +11,8 @@ test('CRC32 matches the independent standard vector',()=>assert.equal(crc32(new 
 test('settings encoding preserves zero, even, odd and 255 values',()=>{const data=Uint8Array.from({length:256},(_,i)=>i);assert.deepEqual(decodeSettings(encodeSettings(data)),data);});
 for(const map of PROFILE.maps){
   test(`${map.name}: repairs a native-zlib save and preserves gameplay and later blocks`,()=>{
-    const source=fixture(map);const old=inspectSave(source.data);assert.equal(old.status,'repair');
+    // A Looming Shadow kept its checksum in 3.0.1, so use an older revision there.
+    const source=fixture(map,map.old===map.current?'11223344':map.old);const old=inspectSave(source.data);assert.equal(old.status,'repair');
     const result=repairSave(source.data);const current=inspectSave(result.data);assert.equal(current.status,'current');assert.equal(current.checksum,map.current);
     assert.deepEqual(result.data.slice(48,64),source.data.slice(48,64));assert.deepEqual(result.data.slice(current.firstEnd),source.data.slice(old.firstEnd));
     const allowed=new Set(result.changedOffsets);for(let i=0;i<source.raw.length;i++)if(!allowed.has(i))assert.equal(current.first[i],source.raw[i]);

@@ -1,8 +1,9 @@
 import {Inflate, Deflate, constants} from './vendor/pako.mjs';
 import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
-import {knownMap} from './map-catalog.mjs';
-import {targetMapChecksum} from './map-checksums.mjs';
+import {mapByPath} from './map-versions.mjs';
 import {projectilePlan,applyProjectilePlan,projectileScanner} from './projectiles.mjs';
+import {downgradeNativePayload} from './native-downgrade.mjs';
+import {renameStoredFolders} from './save-rename.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
 const BLOCK_SIZE=1048576;
@@ -86,7 +87,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
   const count=u32(data,44);const payloadSize=u32(data,40);
   check(count>0&&count<=2048,'The block count is outside the supported range.');
   check(payloadSize>(count-1)*BLOCK_SIZE&&payloadSize<=count*BLOCK_SIZE,'The save payload size is inconsistent.');
-  const build=u16(data,56),projectiles=projectileScanner();
+  const build=u16(data,56),projectiles=projectileScanner(),nativeBuild=!!profile.nativeBuilds?.includes(build);
   let pos=68;let first;let firstEnd;let info;let supported;let collectProjectiles=false;
   for(let index=0;index<count;index++){
     check(pos+12<=data.length,'A save block header is truncated.');
@@ -97,7 +98,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
     check(blockCRC(comp,expanded)===checksum,`Block ${index+1} has an invalid checksum.`);
     if(index===0){
       first=inflateBlock(comp,expanded);info=identity(first);supported=mapProfile(info.map,profile);firstEnd=pos+12+compressed;
-      collectProjectiles=!!supported&&profile.serializationBuilds.includes(build);
+      collectProjectiles=!!supported&&profile.serializationBuilds.includes(build)&&!nativeBuild;
       if(collectProjectiles)projectiles.scan(first);
       onExpandedBlock(first,index);
     }else if(supported){const raw=inflateBlock(comp,expanded);if(collectProjectiles)projectiles.scan(raw);onExpandedBlock(raw,index);}
@@ -106,17 +107,29 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
   check(pos===data.length,'The save contains unexpected trailing data.');
   const details={map:info.map,mapId:supported?.id||info.map.split(/[\\/]/).at(-1).replace(/\.w3xd$/i,'').toLowerCase(),
     mapName:supported?.name||unsupportedMapName(info.map)||info.map.split(/[\\/]/).at(-1),
-    mapNameSource:supported?'repair-profile':knownMap(info.map)?.nameSource||'map-filename',
-    checksum:info.checksum,targetChecksum:supported?.current||targetMapChecksum(info.map)?.current,
+    mapNameSource:supported?'repair-profile':mapByPath(info.map)?.nameSource||'map-filename',
+    checksum:info.checksum,targetChecksum:supported?.current||mapByPath(info.map)?.checksums[profile.to],
     sourceRevisionKnown:supported?info.checksum===supported.old||info.checksum===supported.current:null,
     mapGameTested:supported?.gameTested??null,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
-  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null;
+  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null;
   try{
     if(supported){
       check(u32(data,48)===profile.gameIdentifier&&u32(data,52)===profile.gameVersion,'This map uses an unverified save serialization format.');
-      check(profile.serializationBuilds.includes(build),profile.direction==='downgrade'&&build===7003?'This save was re-saved by Warcraft III 3.0.1. Native 3.0.1 saves cannot yet be downgraded safely; use an original save from before re-saving.':'This save build is outside the tested repair profile.');
+      check(profile.serializationBuilds.includes(build)||nativeBuild,'This save build is outside the tested repair profile.');
       if(profile.strictSource)check(details.sourceRevisionKnown,'Downgrade stopped: unverified source map revision.');
+      if(nativeBuild){
+        check(info.checksum===supported.old,'Downgrade stopped: a save written by Warcraft III 3.0.1 must use the 3.0.1 map checksum.');
+        const payload=new Uint8Array(count*BLOCK_SIZE);payload.set(first);
+        for(let index=1,offset=firstEnd;index<count;index++){
+          const size=u32(data,offset);payload.set(inflateBlock(data.subarray(offset+12,offset+12+size),BLOCK_SIZE),index*BLOCK_SIZE);offset+=12+size;
+        }
+        check(payload.subarray(payloadSize).every(byte=>byte===0),'Downgrade stopped: unverified payload padding.');
+        nativeConversion=downgradeNativePayload(payload.subarray(0,payloadSize));
+        const r=nativeConversion.report,shots=r.projectilesReversed;
+        status='repair';reason=`Saved by Warcraft III 3.0.1: ready to convert ${r.units} units${shots?`, ${shots} projectile${shots===1?'':'s'}`:''}, saved script natives, the camera state and the map checksum to 3.0.0.`+
+          (r.scriptFallbacks.length?` Scripts from the 3.0.1 map use 3.0.1-only functions, replaced with 3.0.0 behaviour (not yet tested in game): ${r.scriptFallbacks.map(f=>`${f.native} → ${f.replacement} (${f.effect})`).join('; ')}.`:'');
+      }
       if(collectProjectiles&&projectiles.found){
         nativePayload=new Uint8Array(count*BLOCK_SIZE);nativePayload.set(first);
         for(let index=1,offset=firstEnd;index<count;index++){
@@ -125,18 +138,21 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
         nativePlan=projectilePlan(nativePayload,{...details,payloadSize,direction:profile.direction});
         if(!nativePlan)nativePayload=null;
       }
-      if(info.checksum===supported.current){status='current';reason=`Map checksum already matches ${profile.to}.`;}
+      if(nativeConversion){}
+      else if(info.checksum===supported.current){status='current';reason=`Map checksum already matches ${profile.to}.`;}
       else {status='repair';reason=`Map checksum differs from ${profile.to}; ready for checksum repair.`;}
       if(nativePlan){status='repair';reason=`Ready to ${profile.direction==='downgrade'?'downgrade':'repair'} ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
     }
   }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
-  return {...details,status,reason,first,firstEnd,info,projectileRepairCount:nativePlan?.records||0,nativePlan,nativePayload};
+  return {...details,status,reason,first,firstEnd,info,projectileRepairCount:nativeConversion?.report.projectilesReversed||nativePlan?.records||0,
+    nativeDowngrade:nativeConversion?.report||null,nativeConversion,nativePlan,nativePayload};
 }
 
 export function repairSave(input,{profile=PROFILE}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input);
   const inspection=inspectSave(data,{profile});
   if(inspection.status!=='repair')return {data,inspection,changedOffsets:[]};
+  if(inspection.nativeConversion)return nativeDowngrade(data,inspection,profile);
   const old=inspection.first;const raw=old.slice();const info=inspection.info;
   const decoded=info.decoded.slice();const checksum=unhex(inspection.targetChecksum);
   decoded.set(checksum,9);const encoded=encodeSettings(decoded);
@@ -174,6 +190,49 @@ export function repairSave(input,{profile=PROFILE}={}){
   check(equal(repaired.subarray(80+comp.length),data.subarray(inspection.firstEnd)),'An untouched compressed block changed.');
   check(u32(repaired,64)===headerCRC(repaired.subarray(0,68))&&u32(repaired,32)===repaired.length,'Output container verification failed.');
   return {data:repaired,inspection,changedOffsets};
+}
+
+// Native 3.0.1 save -> 3.0.0: converted payload, restored map checksum, build 7000, every block recompressed.
+// Recompress a full meaningful payload into a container, keeping the original header except sizes/build.
+function repack(data,raw,build){
+  const payloadSize=raw.length,blocks=Math.ceil(payloadSize/BLOCK_SIZE),parts=[];
+  for(let index=0;index<blocks;index++){
+    const chunk=new Uint8Array(BLOCK_SIZE);chunk.set(raw.subarray(index*BLOCK_SIZE,Math.min(payloadSize,(index+1)*BLOCK_SIZE)));
+    const compressed=compressBlock(chunk);check(equal(inflateBlock(compressed,BLOCK_SIZE),chunk),'A rewritten state block failed round-trip.');
+    const header=new Uint8Array(12);put32(header,0,compressed.length);put32(header,4,BLOCK_SIZE);put32(header,8,blockCRC(compressed,BLOCK_SIZE));parts.push(header,compressed);
+  }
+  const body=join(parts),header=data.slice(0,68);
+  view(header).setUint16(56,build,true);put32(header,32,68+body.length);put32(header,40,payloadSize);put32(header,44,blocks);put32(header,64,headerCRC(header));
+  return join([header,body]);
+}
+function payloadOf(data){
+  const count=u32(data,44),size=u32(data,40),raw=new Uint8Array(count*BLOCK_SIZE);
+  for(let index=0,offset=68;index<count;index++){const length=u32(data,offset);raw.set(inflateBlock(data.subarray(offset+12,offset+12+length),BLOCK_SIZE),index*BLOCK_SIZE);offset+=12+length;}
+  check(raw.subarray(size).every(byte=>byte===0),'Unverified payload padding.');
+  return raw.subarray(0,size);
+}
+// Rewrite the companion folder paths the campaign script stored in this save (see save-rename.mjs).
+export function renameSave(input,folders,{profile=PROFILE}={}){
+  const data=input instanceof Uint8Array?input:new Uint8Array(input),before=inspectSave(data,{profile});
+  const result=renameStoredFolders(payloadOf(data),folders);
+  if(!result.renamed.length)return {data,renamed:[]};
+  const output=repack(data,result.raw,u16(data,56)),after=inspectSave(output,{profile});
+  check(after.checksum===before.checksum&&after.status===before.status&&equal(output.subarray(48,64),data.subarray(48,64)),'Renamed output verification failed.');
+  return {data:output,renamed:result.renamed};
+}
+
+function nativeDowngrade(data,inspection,profile){
+  const raw=inspection.nativeConversion.raw,payloadSize=raw.length;
+  const info=identity(raw.subarray(0,BLOCK_SIZE)),decoded=info.decoded.slice(),checksum=unhex(inspection.targetChecksum);
+  decoded.set(checksum,9);const encoded=encodeSettings(decoded);
+  check(encoded.length===info.settingsEnd-info.settingsStart,'The encoded settings length changed.');
+  raw.set(encoded,info.settingsStart);raw.set(checksum,info.plainOffset);
+  check(identity(raw.subarray(0,BLOCK_SIZE)).checksum===inspection.targetChecksum,'Output map identity verification failed.');
+  const output=repack(data,raw,7000);
+  const verified=inspectSave(output,{profile});
+  check(verified.status==='current'&&verified.build===7000&&verified.checksum===inspection.targetChecksum&&verified.projectileRepairCount===0,'Converted output verification failed.');
+  check(equal(output.subarray(48,56),data.subarray(48,56))&&equal(output.subarray(58,64),data.subarray(58,64)),'Save identifiers or duration changed.');
+  return {data:output,inspection,changedOffsets:[],projectileRepairs:inspection.nativeDowngrade.projectilesReversed,nativeDowngrade:inspection.nativeDowngrade};
 }
 
 export function safePath(input){
