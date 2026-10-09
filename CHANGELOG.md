@@ -6,8 +6,8 @@ Blizzard reverted patch 3.0.1. This release adds an **experimental** downgrade t
 the restored 3.0.0 game; the upgrade direction stays available in code but its tab
 is disabled until the 3.0.1 maps return (`?preview=upgrade` locally).
 
-- Downgrade/Upgrade tabs replace the version selector; Downgrade is the default
-  and marked Experimental. Reports carry `experimental: true`.
+- Downgrade/Upgrade tabs replace the version selector; Downgrade is the default.
+  Both directions are marked Experimental; reports carry `experimental: true`.
 - Downgrade saves written by Warcraft III 3.0.1 (build 7003): map renamed natives
   back to 3.0.0, remove unused 3.0.1-only native bindings, renumber saved Lua
   references, rewrite the Lua record header (which lists pending trigger waits),

@@ -18,7 +18,7 @@ function selectTab(tab){
 }
 function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
-  $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':'Repair older saves for Warcraft III 3.0.1.';
+  $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':'Experimental: repairs older saves for Warcraft III 3.0.1. Keep your originals.';
   if(!available($('tab-upgrade')))$('tab-upgrade').title='Available again if Blizzard re-releases patch 3.0.1.';
   $('tested-act-one').hidden=down;
   $('tested-act-two-title').textContent=down?'Downgrade testing':'Tested — Act Two';

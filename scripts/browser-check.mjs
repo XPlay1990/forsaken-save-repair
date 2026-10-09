@@ -25,6 +25,7 @@ try{
   // Downgrade is the default tab; upgrade stays disabled until the 3.0.1 maps return.
   assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true');
   assert.match(await page.locator('#tab-downgrade').textContent(),/Experimental/);
+  assert.match(await page.locator('#tab-upgrade').textContent(),/Experimental/);
   assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-disabled'),'true');
   await page.locator('#tab-upgrade').click({force:true});
   assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'false');
