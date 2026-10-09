@@ -78,6 +78,24 @@ export function identity(raw){
   return {map,checksum:hex(checksum),decoded,settingsStart:start,settingsEnd:end,plainOffset};
 }
 
+// Player header flag after the duplicated map checksum: 01 00 00 00, player name, NUL, u32 flag.
+// It makes loading switch to the Definitive Edition graphics mode: a fresh Forsaken Kingdom map
+// start writes 4, but 3.0.0 writes 0 into every save made after a load. A 0 save loads in the
+// player's own graphics mode; with Classic graphics (War3Preferences hd=0) the Definitive Edition
+// models (Undercity and Cathedral doodads, Forsaken units) fail to load. Reforged graphics load
+// it normally. The flag is set back to 4 on export.
+export const ASSET_FLAG_FRESH=4;
+export function assetFlag(raw,info=identity(raw)){
+  const limit=Math.min(raw.length-8,info.plainOffset+4+64);
+  for(let pos=info.plainOffset+4;pos<limit;pos++){
+    if(u32(raw,pos)!==1||raw[pos+4]<32||raw[pos+4]>126)continue;
+    let end=pos+4;while(end<raw.length&&end<pos+4+64&&raw[end]>=32&&raw[end]<127)end++;
+    if(raw[end]!==0||end+5>raw.length)return null;
+    return {offset:end+1,value:u32(raw,end+1)};
+  }
+  return null;
+}
+
 export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBlock=()=>{}}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input);
   check(data.length>=80&&equal(data.subarray(0,28),SIGNATURE),'This is not a supported Warcraft III save container.');
@@ -112,7 +130,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
     sourceRevisionKnown:supported?info.checksum===supported.old||info.checksum===supported.current:null,
     mapGameTested:supported?.gameTested??null,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
-  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null;
+  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null,flagOnly=false;
   try{
     if(supported){
       check(u32(data,48)===profile.gameIdentifier&&u32(data,52)===profile.gameVersion,'This map uses an unverified save serialization format.');
@@ -139,12 +157,14 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
         if(!nativePlan)nativePayload=null;
       }
       if(nativeConversion){}
+      else if(info.checksum===supported.current&&assetFlag(first,info)?.value===0){status='repair';flagOnly=true;reason=`Map checksum already matches ${profile.to}. This save was written after loading a save and does not switch to the Definitive Edition graphics mode; with Classic graphics it loads with models missing on maps like Undercity and the Cathedral. Ready to restore the flag.`;}
       else if(info.checksum===supported.current){status='current';reason=`Map checksum already matches ${profile.to}.`;}
       else {status='repair';reason=`Map checksum differs from ${profile.to}; ready for checksum repair.`;}
-      if(nativePlan){status='repair';reason=`Ready to ${profile.direction==='downgrade'?'downgrade':'repair'} ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
+      if(nativePlan){status='repair';flagOnly=false;reason=`Ready to ${profile.direction==='downgrade'?'downgrade':'repair'} ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
     }
   }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
-  return {...details,status,reason,first,firstEnd,info,projectileRepairCount:nativeConversion?.report.projectilesReversed||nativePlan?.records||0,
+  const flag=supported?assetFlag(first,info):null;
+  return {...details,status,reason,flagOnly,first,firstEnd,info,assetFlag:flag?.value??null,projectileRepairCount:nativeConversion?.report.projectilesReversed||nativePlan?.records||0,
     nativeDowngrade:nativeConversion?.report||null,nativeConversion,nativePlan,nativePayload};
 }
 
@@ -153,6 +173,7 @@ export function repairSave(input,{profile=PROFILE}={}){
   const inspection=inspectSave(data,{profile});
   if(inspection.status!=='repair')return {data,inspection,changedOffsets:[]};
   if(inspection.nativeConversion)return nativeDowngrade(data,inspection,profile);
+  if(inspection.flagOnly){const fixed=restoreAssetFlag(data,{profile});return {data:fixed.data,inspection,changedOffsets:[],assetFlagRestored:fixed.restored};}
   const old=inspection.first;const raw=old.slice();const info=inspection.info;
   const decoded=info.decoded.slice();const checksum=unhex(inspection.targetChecksum);
   decoded.set(checksum,9);const encoded=encodeSettings(decoded);
@@ -176,7 +197,7 @@ export function repairSave(input,{profile=PROFILE}={}){
     const body=join(parts),header=data.slice(0,68);put32(header,32,68+body.length);put32(header,40,converted.payloadSize);put32(header,44,converted.raw.length/BLOCK_SIZE);put32(header,64,headerCRC(header));
     const repaired=join([header,body]);
     const verified=inspectSave(repaired,{profile});
-    check(verified.status==='current'&&verified.projectileRepairCount===0&&verified.checksum===inspection.targetChecksum,'Converted output verification failed.');
+    check((verified.status==='current'||verified.flagOnly)&&verified.projectileRepairCount===0&&verified.checksum===inspection.targetChecksum,'Converted output verification failed.');
     check(equal(repaired.subarray(48,64),data.subarray(48,64)),'Save build or duration changed.');
     return {data:repaired,inspection,changedOffsets,projectileRepairs:inspection.projectileRepairCount};
   }
@@ -211,6 +232,23 @@ function payloadOf(data){
   check(raw.subarray(size).every(byte=>byte===0),'Unverified payload padding.');
   return raw.subarray(0,size);
 }
+// Set the player header flag back to its fresh-start value (see assetFlag). Only that field changes.
+export function restoreAssetFlag(input,{profile=PROFILE}={}){
+  const data=input instanceof Uint8Array?input:new Uint8Array(input),before=inspectSave(data,{profile});
+  const flag=assetFlag(before.first,before.info);
+  if(!flag||flag.value===ASSET_FLAG_FRESH)return {data,restored:false};
+  check(flag.value===0,'Unrecognized player header flag; save left unchanged.');
+  const raw=before.first.slice();put32(raw,flag.offset,ASSET_FLAG_FRESH);
+  const comp=compressBlock(raw);check(equal(inflateBlock(comp,raw.length),raw),'Recompressed header block did not round-trip.');
+  const blockHeader=new Uint8Array(12);put32(blockHeader,0,comp.length);put32(blockHeader,4,raw.length);put32(blockHeader,8,blockCRC(comp,raw.length));
+  const header=data.slice(0,68);put32(header,32,68+12+comp.length+data.length-before.firstEnd);put32(header,64,headerCRC(header));
+  const output=join([header,blockHeader,comp,data.subarray(before.firstEnd)]);
+  const after=inspectSave(output,{profile});
+  check(after.assetFlag===ASSET_FLAG_FRESH&&after.checksum===before.checksum&&equal(output.subarray(48,64),data.subarray(48,64)),'Header flag verification failed.');
+  check(equal(output.subarray(80+comp.length),data.subarray(before.firstEnd)),'An untouched compressed block changed.');
+  return {data:output,restored:true};
+}
+
 // Rewrite the companion folder paths the campaign script stored in this save (see save-rename.mjs).
 export function renameSave(input,folders,{profile=PROFILE}={}){
   const data=input instanceof Uint8Array?input:new Uint8Array(input),before=inspectSave(data,{profile});
@@ -230,7 +268,7 @@ function nativeDowngrade(data,inspection,profile){
   check(identity(raw.subarray(0,BLOCK_SIZE)).checksum===inspection.targetChecksum,'Output map identity verification failed.');
   const output=repack(data,raw,7000);
   const verified=inspectSave(output,{profile});
-  check(verified.status==='current'&&verified.build===7000&&verified.checksum===inspection.targetChecksum&&verified.projectileRepairCount===0,'Converted output verification failed.');
+  check((verified.status==='current'||verified.flagOnly)&&verified.build===7000&&verified.checksum===inspection.targetChecksum&&verified.projectileRepairCount===0,'Converted output verification failed.');
   check(equal(output.subarray(48,56),data.subarray(48,56))&&equal(output.subarray(58,64),data.subarray(58,64)),'Save identifiers or duration changed.');
   return {data:output,inspection,changedOffsets:[],projectileRepairs:inspection.nativeDowngrade.projectilesReversed,nativeDowngrade:inspection.nativeDowngrade};
 }

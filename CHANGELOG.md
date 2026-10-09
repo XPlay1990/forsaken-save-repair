@@ -25,6 +25,12 @@ is disabled until the 3.0.1 maps return (`?preview=upgrade` locally).
   companion folder is renamed to match; the folder paths stored in the saved Lua
   are rewritten with correct Lua lengths. Extracting the ZIP never replaces the
   original checkpoint.
+- A player header flag (after the player name) makes loading switch to the
+  Definitive Edition graphics mode. A fresh map start writes 4, but 3.0.0 writes 0
+  into every save made after loading a save; with the Classic graphics setting such
+  saves open with models missing on maps like Undercity and the Cathedral (Reforged
+  graphics load them normally). Exports set the flag back to 4, and 3.0.0
+  saves with flag 0 can be selected in the Downgrade tab to repair just that field.
 - One table (`src/map-versions.mjs`) holds every map's checksum per patch;
   both conversion directions derive from it.
 
@@ -32,8 +38,8 @@ Player validation in restored 3.0.0: six Scarlet Monastery checkpoints saved in
 3.0.1 (start to the later boss state) loaded, saved and reloaded; the renamed
 Cathedral `before_Act_2` bundle (with its four Act One zone snapshots) and
 `act1_progress_after_patch` worked. A Cathedral save made just before the boss transition
-(`before_Act_2_2`) loads with missing doodad and cliff models; this is under
-investigation. Other maps remain unconfirmed.
+(`before_Act_2_2`) loaded with missing models because of the header flag above;
+the repaired copies load. Other maps remain unconfirmed.
 
 ## v0.1.0-beta.4
 

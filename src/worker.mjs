@@ -1,5 +1,5 @@
 import {Zip, ZipPassThrough} from './vendor/fflate.mjs';
-import {inspectSave,repairSave,renameSave,assertUniquePaths} from './repair.mjs';
+import {inspectSave,repairSave,renameSave,restoreAssetFlag,assertUniquePaths} from './repair.mjs';
 import {renamedStem} from './save-rename.mjs';
 import {PROFILE,conversionProfile} from './profiles.mjs';
 import {indexFolder,resolveCheckpointBundle,companionReferenceScanner} from './checkpoint-bundle.mjs';
@@ -11,8 +11,8 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount=0,nativeDowngrade=null}=result;
-  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount,nativeDowngrade};
+  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount=0,nativeDowngrade=null,assetFlag=null}=result;
+  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount,nativeDowngrade,assetFlag};
 }
 function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
@@ -23,7 +23,7 @@ function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
     targetChecksum:row.targetChecksum??null,sourceRevisionKnown:row.sourceRevisionKnown??null,mapGameTested:row.mapGameTested??null,
     build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
     status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null,projectileRepairCount:row.projectileRepairCount??null,
-    outputBuild:exported&&row.nativeDowngrade?7000:exported?row.build??null:null,nativeDowngrade:row.nativeDowngrade??null}));
+    outputBuild:exported&&row.nativeDowngrade?7000:exported?row.build??null:null,nativeDowngrade:row.nativeDowngrade??null,assetFlag:row.assetFlag??null}));
   return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:profile.id,target:`${profile.to}.${profile.build}`,
     scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',experimental:!!profile.experimental,repairMode:analysis.some(row=>row.nativeDowngrade)?'native-3.0.1-downgrade':analysis.some(row=>row.projectileRepairCount>0)?'identity-and-deathseeker-projectiles':'identity-only',folderPathsPreserved:!exported,
     sourcePolicy:profile.sourcePolicy,mapVerification:profile.verification,
@@ -118,7 +118,7 @@ async function exportBundle(){
     for(const [old,next] of folders)if(path.toLowerCase().startsWith(old.toLowerCase()+'/'))return next+path.slice(old.length);
     return path;
   };
-  const renamed=[];
+  const renamed=[],assetFlagRestored=[];
   for(const [source,output] of paths){const next=renamedPath(output);if(next!==output)renamed.push({from:output,to:next});paths.set(source,next);}
   ensure(new Set(Array.from(paths.values(),path=>path.toLowerCase())).size===paths.size,'Renamed output paths collide.');
   const chunks=[];let zipError;
@@ -132,7 +132,7 @@ async function exportBundle(){
     if(row?.status==='repair'){
       const result=repairSave(new Uint8Array(await blob.arrayBuffer()),{profile});
       ensure(result.inspection.checksum===row.checksum,'A save changed since inspection.');
-      blob=new Blob([result.data]);
+      blob=new Blob([result.data]);if(result.assetFlagRestored)assetFlagRestored.push(entry.path);
       changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
         changedPayloadOffsets:result.changedOffsets,projectileRepairs:result.projectileRepairs||0,
         ...(result.nativeDowngrade?{buildFrom:result.inspection.build,buildTo:7000,nativeDowngrade:result.nativeDowngrade}:{buildPreserved:result.inspection.build}),
@@ -142,6 +142,8 @@ async function exportBundle(){
       // Point the stored companion folder at its renamed location.
       const result=renameSave(new Uint8Array(await blob.arrayBuffer()),folders,{profile});
       if(result.renamed.length){blob=new Blob([result.data]);storedPaths=result.renamed;}
+      const flag=restoreAssetFlag(new Uint8Array(await blob.arrayBuffer()),{profile});
+      if(flag.restored){blob=new Blob([flag.data]);assetFlagRestored.push(entry.path);}
     }
     if(storedPaths.length){
       const change=changes.find(row=>row.file===entry.path);
@@ -155,7 +157,7 @@ async function exportBundle(){
     }
     if(blob.size===0)zipped.push(new Uint8Array(),true);
   }
-  const metadata=buildReport({exported:true,paths,changes,renamed});
+  const metadata=buildReport({exported:true,paths,changes,renamed});metadata.assetFlagRestored=assetFlagRestored;
   let reportName='forsaken-repair-report.json';
   while(Array.from(paths.values()).some(path=>path.toLowerCase()===reportName.toLowerCase()))reportName='_'+reportName;
   const report=new ZipPassThrough(reportName);report.mtime=new Date('2026-10-08T00:00:00Z');zip.add(report);

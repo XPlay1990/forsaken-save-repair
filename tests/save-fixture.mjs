@@ -3,7 +3,7 @@ import {PROFILE} from '../dist/profiles.mjs';
 import {headerCRC,blockCRC,encodeSettings} from '../dist/repair.mjs';
 const write=(data,pos,value)=>new DataView(data.buffer,data.byteOffset,data.byteLength).setUint32(pos,value,true);
 const bytes=hex=>Uint8Array.from(hex.match(/../g),x=>parseInt(x,16));
-export function fixture(map=PROFILE.maps[0],checksum=map.old||'11223344',build=7000,{records=[],payloadSize=2097152-37,zeroPadding=true}={}){
+export function fixture(map=PROFILE.maps[0],checksum=map.old||'11223344',build=7000,{records=[],payloadSize=2097152-37,zeroPadding=true,assetFlag}={}){
   const mapPath=map.path||`Campaign\\ForsakenKingdom\\${map.id}.w3xd`;
   const raw=new Uint8Array(1048576);for(let i=512;i<raw.length;i++)raw[i]=(i*13+i%19)&255;
   const prefix=new TextEncoder().encode(`${mapPath}\0\0UndeadRe\0\0\0\0\0Local Game\0\0`);
@@ -14,6 +14,8 @@ export function fixture(map=PROFILE.maps[0],checksum=map.old||'11223344',build=7
   const end=prefix.length+encoded.length;const slot=end+9;
   new DataView(raw.buffer).setUint16(slot,16,true);raw[slot+2]=1;
   write(raw,slot+2+16,0x45671234);raw.set(bytes(checksum),slot+2+16+4);
+  // Player header record: 01 00 00 00, name, NUL, u32 flag (4 after a fresh start, 0 after a 3.0.0 reload).
+  if(assetFlag!==undefined){const at=slot+2+16+4+4+24;write(raw,at,1);raw.set(new TextEncoder().encode('Tester#1\0'),at+4);write(raw,at+13,assetFlag);}
   const second=new Uint8Array(1048576);for(let i=0;i<second.length;i++)second[i]=(i*7+i%11)&255;
   const payload=new Uint8Array(2097152);payload.set(raw);payload.set(second,1048576);
   if(zeroPadding)payload.fill(0,payloadSize);

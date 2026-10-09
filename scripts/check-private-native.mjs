@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {repairSave,inspectSave} from '../dist/repair.mjs';
+import {repairSave,inspectSave,restoreAssetFlag} from '../dist/repair.mjs';
 import {DOWNGRADE_PROFILE as profile} from '../dist/profiles.mjs';
 const root=process.argv[2];
 if(!root)throw Error('Pass the private savegame project root.');
@@ -22,8 +22,12 @@ for(const [input,golden] of [
   const source=new Uint8Array(await readFile(path.join(root,input))),expected=new Uint8Array(await readFile(path.join(root,golden)));
   const started=performance.now(),result=repairSave(source,{profile});
   assert.equal(hash(result.data),hash(expected),`${input}: output differs from the game-tested file`);
-  assert.equal(inspectSave(result.data,{profile}).status,'current');
-  assert.equal(hash(repairSave(result.data,{profile}).data),hash(result.data),'Conversion must be idempotent');
+  const verified=inspectSave(result.data,{profile});
+  assert.ok(verified.status==='current'||verified.flagOnly,'Converted output must be current apart from the 3.0.0 header flag');
+  // Exports also restore the header flag; that changes exactly one byte and is idempotent.
+  const flagged=restoreAssetFlag(result.data,{profile}).data,after=inspectSave(flagged,{profile});
+  assert.equal(after.status,'current');assert.equal(after.assetFlag===null||after.assetFlag===4,true);
+  assert.equal(hash(repairSave(flagged,{profile}).data),hash(flagged),'Conversion must be idempotent');
   const r=result.nativeDowngrade;
   console.log(`${path.basename(input)}: identical to game-tested output (${r.units} units, ${r.projectilesReversed} projectiles, ${r.pendingWaits} pending waits, ${Math.round(performance.now()-started)} ms).`);
 }

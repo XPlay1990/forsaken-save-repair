@@ -78,7 +78,7 @@ test('checkpoint export repairs an additional Act One companion, renames the bun
     assert.equal(unsupported.mapNameSource,'map-filename');
     const repairedArcane=report.saves.find(row=>row.mapId==='undeadre01_05');
     assert.equal(repairedArcane.outputChecksum,'e3d412fe');assert.equal(repairedArcane.sourceRevisionKnown,false);assert.equal(repairedArcane.mapGameTested,false);
-    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks','projectileRepairCount','outputBuild','nativeDowngrade'].sort(),'Report must contain inspection metadata only');
+    assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks','projectileRepairCount','outputBuild','nativeDowngrade','assetFlag'].sort(),'Report must contain inspection metadata only');
     assert.equal(root.outputFile,'beforebaron_upgraded_3.0.1.w3z');
     assert.deepEqual(output['beforebaron_upgraded_3.0.1.w3z'].subarray(48,64),original.subarray(48,64));
   }finally{delete globalThis.self;}
