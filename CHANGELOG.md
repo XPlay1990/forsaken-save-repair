@@ -37,7 +37,8 @@ is disabled until the 3.0.1 maps return (`?preview=upgrade` locally).
 Player validation in restored 3.0.0: six Scarlet Monastery checkpoints saved in
 3.0.1 (start to the later boss state) loaded, saved and reloaded; the renamed
 Cathedral `before_Act_2` bundle (with its four Act One zone snapshots) and
-`act1_progress_after_patch` worked. A Cathedral save made just before the boss transition
+`act1_progress_after_patch` worked, and Act Two's starting map (`actwo_started_2`,
+which needs the script fallbacks) loaded, saved and reloaded. A Cathedral save made just before the boss transition
 (`before_Act_2_2`) loaded with missing models because of the header flag above;
 the repaired copies load. Other maps remain unconfirmed.
 

@@ -22,7 +22,7 @@ function refreshTarget(){
   if(!available($('tab-upgrade')))$('tab-upgrade').title='Available again if Blizzard re-releases patch 3.0.1.';
   $('tested-act-one').hidden=down;
   $('tested-act-two-title').textContent=down?'Downgrade testing':'Tested — Act Two';
-  $('tested-act-two-copy').textContent=down?'Scarlet Monastery (six checkpoints, saved and reloaded), Cathedral with map travel, and an Act One progress save.':"Undercity (starting map), Scarlet Monastery and Dawn's Watch.";
+  $('tested-act-two-copy').textContent=down?'Scarlet Monastery (six checkpoints), Act Two's starting map with script fallbacks, Cathedral with map travel and Arcane Sanctuary, each saved and reloaded.':"Undercity (starting map), Scarlet Monastery and Dawn's Watch.";
   $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':'For saves from before patch 3.0.1, targeting Warcraft III 3.0.1.24342.'} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('Processing stopped. Try a smaller checkpoint.');}
