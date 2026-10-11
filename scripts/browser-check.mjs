@@ -48,10 +48,12 @@ try{
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
   assert.match(await page.locator('.instruction-list').textContent(),/original saves are not replaced/);
   assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
-  assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act One/);
-  assert.match(await page.locator('.limitations-list').textContent(),/Tested — Act Two/);
-  assert.match(await page.locator('.limitations-list').textContent(),/Dawn's Watch/);
-  assert.match(await page.locator('.limitations-list').textContent(),/Remain unconfirmed/);
+  // Tested maps per act come from the map table for the active direction (upgrade preview here).
+  const tested=await page.locator('.limitations-list').textContent();
+  assert.match(tested,/Act OneTested: Undercity, Capital City Ruins, Tirisfal Glades\./);
+  assert.match(tested,/Act TwoTested: .*Dawn's Watch/);
+  assert.match(tested,/Act ThreeUntested\./);
+  assert.match(tested,/Prologue and interludeUntested\./);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Map coverage/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
   const todo=await readFile(path.join(root,'todo.md'),'utf8');assert.match(todo,/Arcane Sanctuary/);assert.match(todo,/Act Two/);assert.match(todo,/Act Three/);
@@ -224,7 +226,9 @@ try{
     await page.locator('#tab-downgrade').click();
     await page.locator('#save-picker').waitFor({state:'visible'});
     assert.match(await page.locator('#target-note').textContent(),/saved in the game/);
-    assert.equal(await page.locator('#tested-act-one').isVisible(),false);
+    const downgradeTested=await page.locator('.limitations-list').textContent();
+    assert.match(downgradeTested,/Act OneTested: Tirisfal Glades, Arcane Sanctuary, Cathedral\./);
+    assert.doesNotMatch(downgradeTested,/Dawn's Watch/);
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible',timeout:120000});
     assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());

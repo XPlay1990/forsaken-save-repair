@@ -1,4 +1,5 @@
 import {PROFILES} from './profiles.mjs';
+import {MAPS} from './map-versions.mjs';
 const $=id=>document.getElementById(id);
 let worker,stats,downloadURL,reportURL,busy=false,checkpoints=[],needsAck=false,selectedFiles=[];
 const labels={repair:'Repair',current:'Current',unsupported:'Unchanged',blocked:'Blocked'};
@@ -16,13 +17,21 @@ function selectTab(tab){
   for(const other of tabs)other.setAttribute('aria-selected',String(other===tab));
   refreshTarget();return changed;
 }
+// Maps tested in game per act for the active direction, straight from the map table.
+const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two']],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
+function renderTested(direction){
+  $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections])=>{
+    const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[direction]).map(map=>map.name.replace(/ \(Act \w+\)$/,''));
+    const row=document.createElement('div'),term=document.createElement('dt'),detail=document.createElement('dd');
+    term.textContent=label;detail.textContent=names.length?`Tested: ${names.join(', ')}.`:'Untested.';
+    row.append(term,detail);return row;
+  }));
+}
 function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
   $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':'Experimental: repairs older saves for Warcraft III 3.0.1. Keep your originals.';
   if(!available($('tab-upgrade')))$('tab-upgrade').title='Available again if Blizzard re-releases patch 3.0.1.';
-  $('tested-act-one').hidden=down;
-  $('tested-act-two-title').textContent=down?'Downgrade testing':'Tested — Act Two';
-  $('tested-act-two-copy').textContent=down?"Scarlet Monastery (six checkpoints), Act Two's starting map with script fallbacks, Cathedral with map travel and Arcane Sanctuary, each saved and reloaded. Tirisfal Glades from a Russian client loaded.":"Undercity (starting map), Scarlet Monastery and Dawn's Watch.";
+  renderTested(down?'downgrade':'upgrade');
   $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':'For saves from before patch 3.0.1, targeting Warcraft III 3.0.1.24342.'} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('Processing stopped. Try a smaller checkpoint.');}
