@@ -64,7 +64,7 @@ export function identity(raw){
   // ("Local Game", "Игра по локально", ...), so the record is found by structure: the first
   // candidate whose decoded settings round-trip and name this save's map.
   let start=-1,end=-1,decoded=null;
-  for(let i=map.length+3;i<Math.min(raw.length,384)&&start<0;i++){
+  for(let i=map.length+3;i<Math.min(raw.length,512)&&start<0;i++){
     if(raw[i-1]!==0||raw[i-2]!==0||raw[i]===0)continue;
     const stop=raw.indexOf(0,i);if(stop<0||stop-i<16)continue;
     const encoded=raw.slice(i,stop),candidate=decodeSettings(encoded);

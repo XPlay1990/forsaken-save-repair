@@ -82,3 +82,9 @@ test('the settings record is found after a localized game name (Russian client)'
   assert.equal(inspection.checksum,map.current);
   assert.notEqual(inspection.status,'unsupported');
 });
+
+test('long multi-byte game names are supported (Chinese client)',()=>{
+  const map=DOWNGRADE_PROFILE.maps.find(row=>row.id==='undeadre01_03');
+  const chinese=fixture(map,map.current,7000,{gameName:'本地游戏'.repeat(12)}).data;
+  assert.equal(inspectSave(chinese,{profile:DOWNGRADE_PROFILE}).checksum,map.current);
+});
