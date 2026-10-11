@@ -21,7 +21,9 @@ function selectTab(tab){
 const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two']],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
 function renderTested(direction){
   $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections])=>{
-    const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[direction]).map(map=>map.name.replace(/ \(Act \w+\)$/,''));
+    // Act One's Undercity map also holds the Trade Quarter (named as in profiles.mjs).
+    const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[direction])
+      .map(map=>map.id==='undeadre01'?'Undercity / Trade Quarter':map.name.replace(/ \(Act \w+\)$/,''));
     const row=document.createElement('div'),term=document.createElement('dt'),detail=document.createElement('dd');
     term.textContent=label;detail.textContent=names.length?`Tested: ${names.join(', ')}.`:'Untested.';
     row.append(term,detail);return row;

@@ -50,7 +50,7 @@ try{
   assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
   // Tested maps per act come from the map table for the active direction (upgrade preview here).
   const tested=await page.locator('.limitations-list').textContent();
-  assert.match(tested,/Act OneTested: Undercity, Capital City Ruins, Tirisfal Glades\./);
+  assert.match(tested,/Act OneTested: Undercity \/ Trade Quarter, Capital City Ruins, Tirisfal Glades\./);
   assert.match(tested,/Act TwoTested: .*Dawn's Watch/);
   assert.match(tested,/Act ThreeUntested\./);
   assert.match(tested,/Prologue and interludeUntested\./);
@@ -227,7 +227,7 @@ try{
     await page.locator('#save-picker').waitFor({state:'visible'});
     assert.match(await page.locator('#target-note').textContent(),/saved in the game/);
     const downgradeTested=await page.locator('.limitations-list').textContent();
-    assert.match(downgradeTested,/Act OneTested: Tirisfal Glades, Arcane Sanctuary, Cathedral\./);
+    assert.match(downgradeTested,/Act OneTested: Undercity \/ Trade Quarter, Capital City Ruins, Tirisfal Glades, Arcane Sanctuary, Cathedral\./);
     assert.doesNotMatch(downgradeTested,/Dawn's Watch/);
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible',timeout:120000});
