@@ -45,10 +45,13 @@ function eris(root){
   };
   value(root);return w.done();
 }
-function luaGraph({legacy,waits,scriptUses}){
-  // 3.0.0 functions that script fallbacks bind to, as in the real map scripts.
-  const destroyEffect=str('DestroyEffect'),globals=[[destroyEffect,perm(destroyEffect)],[str('DoNothing'),{t:'closure',constants:[]}]];
+function luaGraph({legacy,waits,scriptUses,doNothingLast=false,emptyBefore=true}){
+  // 3.0.0 functions that script fallbacks bind to, as in the real map scripts. Table order varies:
+  // doNothingLast writes DoNothing after the 3.0.1 natives (an earlier empty function may exist).
+  const destroyEffect=str('DestroyEffect'),doNothing=[str('DoNothing'),{t:'closure',constants:[]}];
+  const globals=[[destroyEffect,perm(destroyEffect)],...(doNothingLast?(emptyBefore?[[str('Trig_Stub_Actions'),{t:'closure',constants:[]}]]:[]):[doNothing])];
   if(!legacy)for(const name of API_REMOVED){const key=str(name);globals.push([key,perm(key)]);}
+  if(doNothingLast)globals.push(doNothing);
   const aliases=Object.entries(API_ALIASES).map(([current,old])=>str(legacy?old:current));
   for(const key of aliases)globals.push([key,perm(key)]);
   // Later objects reference earlier ones, so removing definitions must renumber them.
@@ -71,7 +74,7 @@ function missile(model,legacy,id){
   new DataView(body.buffer).setUint32(at+path.length+8,id[0],true);new DataView(body.buffer).setUint32(at+path.length+12,id[1],true);
   return body;
 }
-function native({legacy,waits,scriptUses,missiles=[]}){
+function native({legacy,waits,scriptUses,missiles=[],order={}}){
   const objects=[['lga+u3w+',[1,2]],['lga+tset',[3,4]],...missiles.map((_,i)=>['lga+bdUM',[20+i,30+i]]),['fda^fda^',[5,6]]];
   const allocation=new Writer().text('espi').u32(4+16*objects.length).u32(objects.length);
   for(const [type,[a,b]] of objects)allocation.text(type).u32(a).u32(b);
@@ -92,15 +95,15 @@ function native({legacy,waits,scriptUses,missiles=[]}){
   new DataView(early.buffer).setUint32(parent,376+firstBytes.length-first.at(-1).length,true);
   new DataView(early.buffer).setUint32(parent+4,368,true);
   const secondBytes=Buffer.concat(second),toLast=4+gap.length+secondBytes.length-second.at(-1).length;
-  const lua=eris(luaGraph({legacy,waits,scriptUses})),header=new Writer().bytes(Uint8Array.of(0x8e,0x31,0x46,0x1c)).u32(lua.length+28+4*waits.length).u32(waits.length).u32(0);
+  const lua=eris(luaGraph({legacy,waits,scriptUses,...order})),header=new Writer().bytes(Uint8Array.of(0x8e,0x31,0x46,0x1c)).u32(lua.length+28+4*waits.length).u32(waits.length).u32(0);
   for(const wait of waits)header.u32(wait);
   header.u32(lua.length+16).u32(lua.length);
   return Buffer.concat([head,early,firstBytes,new Writer().u32(toLast).done(),gap,secondBytes,header.done(),lua,new Uint8Array(12),encoder.encode('8f31461c-tail')]);
 }
-export function native301Fixture({map=scarlet,legacy=false,waits=[2],scriptUses=null,missiles=[],checksum,build}={}){
+export function native301Fixture({map=scarlet,legacy=false,waits=[2],scriptUses=null,missiles=[],checksum,build,doNothingLast,emptyBefore}={}){
   const profileMap=DOWNGRADE_PROFILE.maps.find(row=>row.id===map.id);
   const sum=checksum??(legacy?profileMap.current:profileMap.old),initial=fixture(map,sum,build??(legacy?7000:7003)).data;
-  const identity=inspectSave(initial,{profile:PROFILE}).first,body=native({legacy,waits,scriptUses,missiles});
+  const identity=inspectSave(initial,{profile:PROFILE}).first,body=native({legacy,waits,scriptUses,missiles,order:{doNothingLast,emptyBefore}});
   const meaningful=4096+body.length,raw=new Uint8Array(Math.ceil(meaningful/BLOCK)*BLOCK);
   raw.set(identity.subarray(0,512));raw.set(body,4096);
   const blocks=[];

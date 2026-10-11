@@ -100,7 +100,7 @@ export function parseEris(raw,start){
       });
       return entry();
     }
-    if(tag===6){node.isC=flag();const upvalues=u8();return value(()=>seq(upvalues,finish));}
+    if(tag===6){node.isC=flag();const upvalues=u8();node.upvalues=upvalues;return value(first=>{if(!node.isC)node.proto=first;seq(upvalues,finish);});}
     if(tag===9){
       take(11);const code=count();node.code=take(code*4);node.codeSize=code*4;
       return seq(count(),()=>seq(count(),()=>{
@@ -190,11 +190,18 @@ function migrateApi(raw){
       spans.push([v.start+5,v.end]);inserted.push(v.start+5);
       edits.push({offset:v.start+5,remove:4,bytes:inlineString(fallback.native)});
     }else{
-      const [,noop]=bindings.get('DoNothing')||[];
-      check(noop?.tag===6&&noop.isC===0&&noop.start<v.start,`no 3.0.0 replacement for ${name}`);
+      // The binding becomes a reference to a function that does nothing. Eris references can only
+      // point back to objects written earlier, and DoNothing may come later (table order): then
+      // any earlier empty Lua function serves (one RETURN instruction, no upvalues).
+      const empty=node=>node?.tag===6&&node.isC===0&&node.upvalues===0&&node.proto?.tag===9&&node.proto.codeSize===4;
+      const [,doNothing]=bindings.get('DoNothing')||[];
+      const noop=doNothing?.tag===6&&doNothing.isC===0&&doNothing.start<v.start?doNothing:graph.refs.find(node=>empty(node)&&node.start<v.start);
+      check(noop,`no 3.0.0 replacement for ${name}`);
       spans.push([v.start,v.end]);deleted.add(v.ref);noops.push({v,noop});
+      fallbacks.push({native:name,replacement:noop===doNothing?'DoNothing':'an empty script function',effect:fallback.effect,noop});
+      continue;
     }
-    fallbacks.push({native:name,replacement:fallback.native||'DoNothing',effect:fallback.effect});
+    fallbacks.push({native:name,replacement:fallback.native,effect:fallback.effect});
   }
   for(const [name,legacy] of Object.entries(API_ALIASES)){
     const matches=graph.refs.filter(node=>node?.tag===13&&node.kind===6&&node.child?.tag===4&&text(raw,node.child)===name);
@@ -233,13 +240,14 @@ function migrateApi(raw){
   for(const name of removed)check(!after.has(name),`${name} was not removed`);
   for(const row of fallbacks){
     const value=after.get(row.native);
-    if(row.replacement==='DoNothing')check(value===after.get('DoNothing'),`${row.native} fallback not bound`);
+    if(row.noop)check(value===checked.refs[mapping[row.noop.ref]],`${row.native} fallback not bound`);
     else check(value?.tag===13&&text(edited,value.child)===row.replacement,`${row.native} fallback not bound`);
   }
   check(same(edited.subarray(checked.end),raw.subarray(graph.end)),'data after saved Lua changed');
   check(same(edited.subarray(0,frame.tag+4),raw.subarray(0,frame.tag+4)),'data before saved Lua changed');
   check(JSON.stringify(luaFrame(edited,eris,size).waitIds)===JSON.stringify(frame.waitIds),'pending trigger waits changed');
-  return {raw:edited,report:{aliases:Object.keys(API_ALIASES).length,removedUnusedGlobals:removed,scriptFallbacks:fallbacks,
+  return {raw:edited,report:{aliases:Object.keys(API_ALIASES).length,removedUnusedGlobals:removed,
+    scriptFallbacks:fallbacks.map(({native,replacement,effect})=>({native,replacement,effect})),
     removedReferences:deleted.size,rebasedReferences:rebased,luaSizeDelta:delta,pendingWaits:frame.waits}};
 }
 

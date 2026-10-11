@@ -87,3 +87,19 @@ test('worker downgrades a 3.0.1 checkpoint and companions as <name>_downgraded_3
     assert.ok(report.changed.every(row=>row.nativeDowngrade?.units===1));
   }finally{delete globalThis.self;}
 });
+
+test('a no-op fallback uses an earlier empty function when DoNothing is written after the native',()=>{
+  // Eris can only reference objects written earlier; table order put DoNothing later in a user's quicksave.
+  const map=profile.maps.find(row=>row.id==='undeadre02');
+  const result=repairSave(native301Fixture({map,scriptUses:['BlzSetCameraAllowsHotkeyTargetLock'],doNothingLast:true}),{profile});
+  assert.deepEqual(result.nativeDowngrade.scriptFallbacks.map(row=>[row.native,row.replacement]),[['BlzSetCameraAllowsHotkeyTargetLock','an empty script function']]);
+  const raw=expanded(result.data);
+  const graph=parseEris(raw,Buffer.from(raw).indexOf(Buffer.from('ERIS')));
+  const text=node=>new TextDecoder().decode(raw.subarray(node.text,node.text+node.size));
+  const table=node=>new Map(node.pairs.map(([k,v])=>[text(k),v]));
+  const globals=table(table(table(graph.refs[1]).get('_LOADED')).get('_G'));
+  assert.equal(globals.get('BlzSetCameraAllowsHotkeyTargetLock'),globals.get('Trig_Stub_Actions'));
+  assert.equal(inspectSave(result.data,{profile}).status,'current');
+  assert.throws(()=>repairSave(native301Fixture({map,scriptUses:['BlzSetCameraAllowsHotkeyTargetLock'],doNothingLast:true,emptyBefore:false}),{profile}),
+    /no 3.0.0 replacement for BlzSetCameraAllowsHotkeyTargetLock/);
+});

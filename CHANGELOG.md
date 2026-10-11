@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Some 3.0.1 quicksaves stopped with "no 3.0.0 replacement for
+  BlzSetCameraAllowsHotkeyTargetLock": the no-op fallback points at DoNothing, but saved Lua
+  can only reference objects written earlier, and table order can put DoNothing later. Any
+  earlier empty function (one RETURN instruction, no upvalues) is used then; saves with
+  DoNothing earlier convert byte-identically to before.
 - Saves from non-English clients were rejected with "The save settings record was not
   found": the game name before the settings is localized (e.g. Russian
   `Игра по локально` instead of `Local Game`). The settings record is now found by its
