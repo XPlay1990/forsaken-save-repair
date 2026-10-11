@@ -52,6 +52,7 @@ try{
   const tested=await page.locator('.limitations-list').textContent();
   assert.match(tested,/Act OneTested: Undercity \/ Trade Quarter, Capital City Ruins, Tirisfal Glades\./);
   assert.match(tested,/Act TwoTested: .*Dawn's Watch/);
+  assert.doesNotMatch(tested,/travel scripts/);
   assert.match(tested,/Act ThreeUntested\./);
   assert.match(tested,/Prologue and interludeUntested\./);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Map coverage/);
@@ -229,6 +230,7 @@ try{
     const downgradeTested=await page.locator('.limitations-list').textContent();
     assert.match(downgradeTested,/Act OneTested: Undercity \/ Trade Quarter, Capital City Ruins, Tirisfal Glades, Arcane Sanctuary, Cathedral\./);
     assert.doesNotMatch(downgradeTested,/Dawn's Watch/);
+    assert.match(downgradeTested,/Act TwoTested: [^.]*\. Areas first entered under 3\.0\.1 keep their 3\.0\.1 travel scripts/);
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible',timeout:120000});
     assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());

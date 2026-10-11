@@ -18,14 +18,16 @@ function selectTab(tab){
   refreshTarget();return changed;
 }
 // Maps tested in game per act for the active direction, straight from the map table.
-const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two']],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
+// Optional third entry: a note per direction, shown after the tested maps.
+const ACT_TWO_TRAVEL="Areas first entered under 3.0.1 keep their 3.0.1 travel scripts: these saves load, but travelling to another area loses hero items and skill points, and areas you return to start over. Fixing that means replacing them with the 3.0.0 scripts, which are Blizzard's code and cannot be distributed here.";
+const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two'],{downgrade:ACT_TWO_TRAVEL}],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
 function renderTested(direction){
-  $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections])=>{
+  $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections,notes={}])=>{
     // Act One's Undercity map also holds the Trade Quarter (named as in profiles.mjs).
     const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[direction])
       .map(map=>map.id==='undeadre01'?'Undercity / Trade Quarter':map.name.replace(/ \(Act \w+\)$/,''));
     const row=document.createElement('div'),term=document.createElement('dt'),detail=document.createElement('dd');
-    term.textContent=label;detail.textContent=names.length?`Tested: ${names.join(', ')}.`:'Untested.';
+    term.textContent=label;detail.textContent=(names.length?`Tested: ${names.join(', ')}.`:'Untested.')+(notes[direction]?` ${notes[direction]}`:'');
     row.append(term,detail);return row;
   }));
 }
