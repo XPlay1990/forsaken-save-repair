@@ -4,7 +4,7 @@ import {inflateSync,constants as z} from 'node:zlib';
 import {readFile} from 'node:fs/promises';
 import path from 'node:path';
 import {crc32,headerCRC,blockCRC,inspectSave,repairSave,encodeSettings,decodeSettings,safePath,assertUniquePaths} from '../dist/repair.mjs';
-import {PROFILE} from '../dist/profiles.mjs';
+import {PROFILE,DOWNGRADE_PROFILE} from '../dist/profiles.mjs';
 import {fixture} from './save-fixture.mjs';
 
 test('CRC32 matches the independent standard vector',()=>assert.equal(crc32(new TextEncoder().encode('123456789')),0xcbf43926));
@@ -73,4 +73,12 @@ test('real Act Two and prologue saves match independently repaired Python output
     assert.deepEqual(repaired.subarray(a.firstEnd),expected.subarray(b.firstEnd),row.mapId);
     assert.deepEqual(repaired.subarray(48,64),source.subarray(48,64),row.mapId);
   }
+});
+
+test('the settings record is found after a localized game name (Russian client)',()=>{
+  const map=DOWNGRADE_PROFILE.maps.find(row=>row.id==='undeadre01_03');
+  const russian=fixture(map,map.current,7000,{gameName:'Игра по локально'}).data;
+  const inspection=inspectSave(russian,{profile:DOWNGRADE_PROFILE});
+  assert.equal(inspection.checksum,map.current);
+  assert.notEqual(inspection.status,'unsupported');
 });

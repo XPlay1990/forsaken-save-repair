@@ -3,10 +3,10 @@ import {PROFILE} from '../dist/profiles.mjs';
 import {headerCRC,blockCRC,encodeSettings} from '../dist/repair.mjs';
 const write=(data,pos,value)=>new DataView(data.buffer,data.byteOffset,data.byteLength).setUint32(pos,value,true);
 const bytes=hex=>Uint8Array.from(hex.match(/../g),x=>parseInt(x,16));
-export function fixture(map=PROFILE.maps[0],checksum=map.old||'11223344',build=7000,{records=[],payloadSize=2097152-37,zeroPadding=true,assetFlag}={}){
+export function fixture(map=PROFILE.maps[0],checksum=map.old||'11223344',build=7000,{records=[],payloadSize=2097152-37,zeroPadding=true,assetFlag,gameName='Local Game'}={}){
   const mapPath=map.path||`Campaign\\ForsakenKingdom\\${map.id}.w3xd`;
   const raw=new Uint8Array(1048576);for(let i=512;i<raw.length;i++)raw[i]=(i*13+i%19)&255;
-  const prefix=new TextEncoder().encode(`${mapPath}\0\0UndeadRe\0\0\0\0\0Local Game\0\0`);
+  const prefix=new TextEncoder().encode(`${mapPath}\0\0UndeadRe\0\0\0\0\0${gameName}\0\0`);
   raw.set(prefix);
   const decoded=new Uint8Array(13+mapPath.length+1+8);
   decoded.set([2,0,0,0,4,102,1,118,1]);decoded.set(bytes(checksum),9);decoded.set(new TextEncoder().encode(mapPath),13);

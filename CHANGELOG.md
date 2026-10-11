@@ -1,5 +1,12 @@
 # Release notes
 
+## Unreleased
+
+- Saves from non-English clients were rejected with "The save settings record was not
+  found": the game name before the settings is localized (e.g. Russian
+  `Игра по локально` instead of `Local Game`). The settings record is now found by its
+  structure (it decodes, round-trips and names the save's own map).
+
 ## v0.1.0-beta.5 — experimental downgrade to restored 3.0.0
 
 Blizzard reverted patch 3.0.1. This release adds an **experimental** downgrade to

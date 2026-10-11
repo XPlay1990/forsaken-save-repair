@@ -60,13 +60,21 @@ function ascii(data){check(data.every(x=>x>=32&&x<127),'An identity string conta
 const normalize=path=>path.toLowerCase().replaceAll('\\','/');
 export function identity(raw){
   const map=ascii(raw.subarray(0,zero(raw,0,256)));
-  const marker=new TextEncoder().encode('Local Game\0\0');let start=-1;
-  for(let i=0;i<Math.min(raw.length-marker.length,256);i++)if(equal(raw.subarray(i,i+marker.length),marker)){start=i+marker.length;break;}
+  // The encoded settings follow the game name and two NUL bytes. The game name is localized
+  // ("Local Game", "Игра по локально", ...), so the record is found by structure: the first
+  // candidate whose decoded settings round-trip and name this save's map.
+  let start=-1,end=-1,decoded=null;
+  for(let i=map.length+3;i<Math.min(raw.length,384)&&start<0;i++){
+    if(raw[i-1]!==0||raw[i-2]!==0||raw[i]===0)continue;
+    const stop=raw.indexOf(0,i);if(stop<0||stop-i<16)continue;
+    const encoded=raw.slice(i,stop),candidate=decodeSettings(encoded);
+    if(candidate.length<14||!equal(encodeSettings(candidate),encoded))continue;
+    const nul=candidate.indexOf(0,13);
+    if(nul<0||!candidate.subarray(13,nul).every(x=>x>=32&&x<127))continue;
+    if(normalize(new TextDecoder().decode(candidate.subarray(13,nul)))!==normalize(map))continue;
+    start=i;end=stop;decoded=candidate;
+  }
   check(start>=0,'The save settings record was not found.');
-  const end=zero(raw,start,512);const encoded=raw.slice(start,end);const decoded=decodeSettings(encoded);
-  check(decoded.length>=14&&equal(encodeSettings(decoded),encoded),'Unsupported settings encoding.');
-  const embeddedMap=ascii(decoded.subarray(13,zero(decoded,13)));
-  check(normalize(map)===normalize(embeddedMap),'The save contains inconsistent map identities.');
   const slotStart=end+9;
   check(slotStart+3<raw.length,'The slot record is missing.');
   const slotSize=u16(raw,slotStart);const slots=raw[slotStart+2];
