@@ -222,7 +222,7 @@ export const MAPS = Object.freeze([
     },
     "gameTested": {
       "upgrade": true,
-      "downgrade": false
+      "downgrade": true
     }
   },
   {
