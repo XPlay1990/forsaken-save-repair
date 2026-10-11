@@ -6,6 +6,9 @@
   found": the game name before the settings is localized (e.g. Russian
   `Игра по локально` instead of `Local Game`). The settings record is now found by its
   structure (it decodes, round-trips and names the save's own map).
+- Companion folders with non-ASCII names (e.g. `Blizzardновый крутой сырник`) were not
+  renamed inside the saved Lua: the mention check decoded the save as Latin-1. Paths are
+  UTF-8 now; Lua lengths were already counted in bytes.
 
 ## v0.1.0-beta.5 — experimental downgrade to restored 3.0.0
 

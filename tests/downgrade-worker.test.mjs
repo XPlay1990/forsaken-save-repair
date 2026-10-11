@@ -75,3 +75,12 @@ test('changing target resets worker analysis and selects the new checksum profil
     }
   }finally{delete globalThis.self;}
 });
+
+test('non-ASCII companion folders (a Russian client) are renamed inside the saved Lua',()=>{
+  const profile=DOWNGRADE_PROFILE,map=profile.maps.find(row=>row.id==='undeadre02_06');
+  const folder='Blizzard/новый крутой сырник',newFolder='Blizzard/новый крутой сырник_downgraded_3.0.0';
+  const original=nativeFixture({map,checksum:map.old,current:true,companionPath:folder.replaceAll('/','\\')});
+  const result=renameSave(repairSave(original,{profile}).data,[[folder,newFolder]],{profile});
+  // Lua lengths are bytes: each Cyrillic letter is two UTF-8 bytes; renameSave re-reads the graph.
+  assert.deepEqual(result.renamed,[{before:'Blizzard\\новый крутой сырник',after:'Blizzard\\новый крутой сырник_downgraded_3.0.0'}]);
+});

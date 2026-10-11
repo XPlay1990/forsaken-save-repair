@@ -40,7 +40,9 @@ export function renameStoredFolders(payload,folders){
   // A mention is the folder path not followed by another name character (so before_Act_2 does
   // not match before_Act_2_2 or the renamed before_Act_2_downgraded_3.0.0).
   const patterns=folders.map(([from])=>new RegExp(from.replace(/[.*+?^${}()|[\]\\/]/g,'\\$&')+'(?![A-Za-z0-9_])','gi'));
-  const mentions=raw=>{const textual=new TextDecoder('latin1').decode(raw).replaceAll('\\','/');return patterns.reduce((n,p)=>n+(textual.match(p)?.length||0),0);};
+  // Paths are UTF-8 (folder names can be Cyrillic, Chinese, ...); binary data around them decodes
+  // to replacement characters, which cannot form a mention.
+  const mentions=raw=>{const textual=new TextDecoder('utf-8').decode(raw).replaceAll('\\','/');return patterns.reduce((n,p)=>n+(textual.match(p)?.length||0),0);};
   if(!mentions(payload))return {raw:payload,renamed:[]};
   const eris=find(payload,ERIS);check(eris>=0,'stored companion paths found without a saved Lua section');
   const graph=parseEris(payload,eris),frame=luaFrame(payload,eris,graph.end-eris);
