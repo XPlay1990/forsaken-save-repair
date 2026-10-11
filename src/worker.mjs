@@ -11,8 +11,8 @@ const send=(type,data={})=>self.postMessage({type,...data});
 const ensure=(ok,message)=>{if(!ok)throw Error(message);};
 
 function publicResult(result,path,size){
-  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount=0,nativeDowngrade=null,assetFlag=null}=result;
-  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount,nativeDowngrade,assetFlag};
+  const {map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount=0,nativeDowngrade=null,heroArmorRepairs=0,heroArmorChanges=[],assetFlag=null}=result;
+  return {path,size,map,mapId,mapName,mapNameSource,checksum,targetChecksum,sourceRevisionKnown,mapGameTested,status,reason,build,blocks,gameIdentifier,gameVersion,projectileRepairCount,nativeDowngrade,heroArmorRepairs,heroArmorChanges,assetFlag};
 }
 function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
   ensure(selection&&analysis.length,'Select and inspect a checkpoint before downloading its report.');
@@ -23,16 +23,17 @@ function buildReport({exported=false,paths=new Map(),changes=[],renamed=[]}={}){
     targetChecksum:row.targetChecksum??null,sourceRevisionKnown:row.sourceRevisionKnown??null,mapGameTested:row.mapGameTested??null,
     build:row.build??null,gameIdentifier:row.gameIdentifier??null,gameVersion:row.gameVersion??null,
     status:row.status,reason:row.reason,size:row.size,blocks:row.blocks??null,projectileRepairCount:row.projectileRepairCount??null,
-    outputBuild:exported&&row.nativeDowngrade?7000:exported?row.build??null:null,nativeDowngrade:row.nativeDowngrade??null,assetFlag:row.assetFlag??null}));
+    outputBuild:exported&&row.nativeDowngrade?7000:exported?row.build??null:null,nativeDowngrade:row.nativeDowngrade??null,
+    heroArmorRepairs:row.heroArmorRepairs??0,heroArmorChanges:row.heroArmorChanges??[],assetFlag:row.assetFlag??null}));
   return {reportVersion:1,reportKind:exported?'repaired-bundle':'analysis',profile:profile.id,target:`${profile.to}.${profile.build}`,
-    scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',experimental:!!profile.experimental,repairMode:analysis.some(row=>row.nativeDowngrade)?'native-3.0.1-downgrade':analysis.some(row=>row.projectileRepairCount>0)?'identity-and-deathseeker-projectiles':'identity-only',folderPathsPreserved:!exported,
+    scope:'Selected checkpoint and its own companions; all Forsaken Kingdom acts and the separate prologue',experimental:!!profile.experimental,repairMode:analysis.some(row=>row.nativeDowngrade)?'native-3.0.1-downgrade':analysis.some(row=>row.heroArmorRepairs>0)?'identity-and-hero-armor':analysis.some(row=>row.projectileRepairCount>0)?'identity-and-deathseeker-projectiles':'identity-only',folderPathsPreserved:!exported,
     sourcePolicy:profile.sourcePolicy,mapVerification:profile.verification,
     created:new Date().toISOString(),checkpoint:selection,saves,changed:changes,renamed,filenamesPreserved:!exported,
     unchangedUnsupported:exported?saves.filter(row=>row.status==='unsupported'):[],
     missingCompanions:{folders:selection.missingFolders,files:selection.missingFiles},supportedMapsNotInBundle:stats.missing,
     verification:exported?'File-level checks passed. Test loading and travel in Warcraft III, then save again under a new name.':'Inspection only. No save files were changed. Null metadata means it could not be verified.',
     checksumFormat:'Four stored map-checksum bytes in hexadecimal, in byte order. build is the save serialization build, not the installed patch.',
-    privacy:'All processing happened in this browser. This report contains relative filenames and inspection metadata, without gameplay data. No files were sent to a server.'};
+    privacy:'All processing happened in this browser. This report contains relative filenames, inspection metadata and any corrected armor cache values. No save files or saved scripts are included, and no files were sent to a server.'};
 }
 function exportReport(){
   const metadata=buildReport();
@@ -135,8 +136,9 @@ async function exportBundle(){
       blob=new Blob([result.data]);if(result.assetFlagRestored)assetFlagRestored.push(entry.path);
       changes.push({file:entry.path,outputFile:paths.get(entry.path),map:row.mapName,from:row.checksum,to:row.targetChecksum,
         changedPayloadOffsets:result.changedOffsets,projectileRepairs:result.projectileRepairs||0,
+        heroArmorRepairs:result.inspection.heroArmorRepairs,heroArmorChanges:result.inspection.heroArmorChanges,
         ...(result.nativeDowngrade?{buildFrom:result.inspection.build,buildTo:7000,nativeDowngrade:result.nativeDowngrade}:{buildPreserved:result.inspection.build}),
-        checks:result.nativeDowngrade?'Passed: container checksums, saved Lua graph re-read with renamed and removed natives and renumbered references, pending trigger waits, unit/projectile/camera layouts, native and Lua lengths, map identity and build 7000.':result.projectileRepairs?'Passed: container checksums, targeted projectile fields and lengths, unchanged saved Lua, map identity and save build.':'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
+        checks:result.nativeDowngrade?'Passed: container checksums, saved Lua graph re-read with renamed and removed natives and renumbered references, pending trigger waits, unit/projectile/camera layouts, hero armor caches, native and Lua lengths, map identity and build 7000.':result.inspection.heroArmorRepairs?'Passed: container checksums, paired hero/unit armor caches with independently matched Agility, any pending projectile conversion, unchanged saved Lua, map identity and save build.':result.projectileRepairs?'Passed: container checksums, targeted projectile fields and lengths, unchanged saved Lua, map identity and save build.':'Passed: container checksums, identity round-trip, untouched compressed blocks and save build.'});
     }
     if(['repair','current'].includes(row?.status)){
       // Point the stored companion folder at its renamed location.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Hero armor from Agility: 3.0.0 writes 0.14 per Agility point for newly created heroes
+  and 0.30 once it recalculates; heroes saved under 3.0.1 keep 0.14, so Anya and Garek
+  showed reduced or negative base armor in Act One until an Agility item was toggled.
+  Downgrades now apply the recalculation (hero and unit armor caches, verified against
+  the saved Agility-derived attack speed), also for already downgraded saves and
+  companions. Unknown profiles and layouts are skipped, never blocking a save.
 - Some 3.0.1 quicksaves stopped with "no 3.0.0 replacement for
   BlzSetCameraAllowsHotkeyTargetLock": the no-op fallback points at DoNothing, but saved Lua
   can only reference objects written earlier, and table order can put DoNothing later. Any

@@ -18,7 +18,7 @@ The site has two tabs, both **experimental**:
 Two kinds of saves are converted:
 
 - **Website repairs** of original saves (build 7000, never re-saved by the 3.0.1
-  game) are reversed exactly: the 3.0.0 map checksums are restored and the
+  game) restore the 3.0.0 map checksums and reverse the
   Deathseeker projectile migration is undone, including companion snapshots.
 - **Saves written by the 3.0.1 game** (serialization build 7003) are converted
   (`src/native-downgrade.mjs`):
@@ -44,6 +44,25 @@ Saved Lua is parsed as data and never executed. Saves calling a 3.0.1-only nativ
 without a fallback, unknown source checksums and unrecognized layouts are blocked;
 a blocked companion blocks the whole bundle, and the report can still be downloaded.
 
+### Hero armor from Agility
+
+Each hero stores its armor bonus from Agility. Warcraft III 3.0.0 writes 0.14 per Agility
+point (minus 2) for newly created heroes and switches to 0.30 when it recalculates, e.g.
+when an Agility item changes; in a long session every hero, enemies included, ends up
+at 0.30. Heroes saved under 3.0.1 still carry 0.14, which the restored game keeps after
+loading, so Anya and Garek can show negative or reduced base armor in Act One until an
+Agility item is dropped and picked up again.
+
+Downgrade applies that recalculation: it sets the hero's contribution to 0.30 per
+Agility point and adds the difference to the unit's total armor, keeping other armor
+sources. This also applies to already downgraded saves and companion snapshots. Each
+change requires the separately saved Agility-derived attack-speed contribution to match;
+already recalculated heroes, unknown profiles and unrecognized layouts are left
+unchanged and never block a save. No hero receives a fixed armor value.
+The Capital City item-toggle test confirmed base armor 7 for Anya and 8 for Garek
+after reloading, and the updated converter's Capital output loaded with 7/8 directly.
+Other maps have file-level validation only. The export report lists every change.
+
 ### Missing models: the graphics flag
 
 A u32 after the player name in a save's first block makes loading switch to the
@@ -62,7 +81,7 @@ In restored 3.0.0 (executable 3.0.0.24268; installed content metadata lists
 3.0.0.24248), these saves loaded, were saved again and reloaded:
 
 - six Scarlet Monastery checkpoints saved in 3.0.1, from the start to the later
-  boss state; the browser output is byte-identical to the tested files
+  boss state; the browser output matches the tested files plus the armor correction
   (`scripts/check-private-native.mjs`);
 - Act Two's starting map, converted with the script fallbacks;
 - the Cathedral (`before_Act_2`, including travel with its four Act One zone
@@ -120,8 +139,8 @@ save; they are rewritten (`src/save-rename.mjs`) with all three Lua lengths
 updated, and the saved Lua is re-read to verify.
 
 Reports contain relative paths, identity/format metadata, conversion counts,
-script fallbacks and missing companions. They include no expanded gameplay data
-and cannot recreate missing saved progression.
+script fallbacks, corrected armor cache values and missing companions. They do
+not include save payloads or scripts and cannot recreate missing saved progression.
 
 ## Limits
 

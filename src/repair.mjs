@@ -2,7 +2,7 @@ import {Inflate, Deflate, constants} from './vendor/pako.mjs';
 import {PROFILE, mapProfile, unsupportedMapName} from './profiles.mjs';
 import {mapByPath} from './map-versions.mjs';
 import {projectilePlan,applyProjectilePlan,projectileScanner} from './projectiles.mjs';
-import {downgradeNativePayload} from './native-downgrade.mjs';
+import {downgradeNativePayload,repairHeroArmor} from './native-downgrade.mjs';
 import {renameStoredFolders} from './save-rename.mjs';
 
 const SIGNATURE=new TextEncoder().encode('Warcraft III recorded game\x1a\0');
@@ -138,7 +138,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
     sourceRevisionKnown:supported?info.checksum===supported.old||info.checksum===supported.current:null,
     mapGameTested:supported?.gameTested??null,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
-  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null,flagOnly=false;
+  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null,armorConversion=null,flagOnly=false;
   try{
     if(supported){
       check(u32(data,48)===profile.gameIdentifier&&u32(data,52)===profile.gameVersion,'This map uses an unverified save serialization format.');
@@ -154,6 +154,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
         nativeConversion=downgradeNativePayload(payload.subarray(0,payloadSize));
         const r=nativeConversion.report,shots=r.projectilesReversed;
         status='repair';reason=`Saved by Warcraft III 3.0.1: ready to convert ${r.units} units${shots?`, ${shots} projectile${shots===1?'':'s'}`:''}, saved script natives, the camera state and the map checksum to 3.0.0.`+
+          (r.heroArmorRepairs?` Recalculate ${r.heroArmorRepairs} stale hero armor cache(s) for 3.0.0.`:'')+
           (r.scriptFallbacks.length?` Scripts from the 3.0.1 map use 3.0.1-only functions, replaced with 3.0.0 behaviour (not yet tested in game): ${r.scriptFallbacks.map(f=>`${f.native} → ${f.replacement} (${f.effect})`).join('; ')}.`:'');
       }
       if(collectProjectiles&&projectiles.found){
@@ -169,11 +170,21 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
       else if(info.checksum===supported.current){status='current';reason=`Map checksum already matches ${profile.to}.`;}
       else {status='repair';reason=`Map checksum differs from ${profile.to}; ready for checksum repair.`;}
       if(nativePlan){status='repair';flagOnly=false;reason=`Ready to ${profile.direction==='downgrade'?'downgrade':'repair'} ${nativePlan.records} Deathseeker projectile record${nativePlan.records===1?'':'s'}${info.checksum!==supported.current?' and the map checksum':''}.`;}
+      if(profile.direction==='downgrade'&&!nativeConversion){
+        const meaningful=(nativePayload||payloadOf(data)).subarray(0,payloadSize);
+        armorConversion=repairHeroArmor(meaningful);
+        if(armorConversion.report.heroArmorRepairs){
+          status='repair';flagOnly=false;
+          reason+=` Ready to recalculate ${armorConversion.report.heroArmorRepairs} stale hero armor cache(s) for 3.0.0.`;
+        }else armorConversion=null;
+      }
     }
   }catch(error){error.inspection={...details,status:'blocked',reason:error.message};throw error;}
   const flag=supported?assetFlag(first,info):null;
   return {...details,status,reason,flagOnly,first,firstEnd,info,assetFlag:flag?.value??null,projectileRepairCount:nativeConversion?.report.projectilesReversed||nativePlan?.records||0,
-    nativeDowngrade:nativeConversion?.report||null,nativeConversion,nativePlan,nativePayload};
+    heroArmorRepairs:nativeConversion?.report.heroArmorRepairs||armorConversion?.report.heroArmorRepairs||0,
+    heroArmorChanges:nativeConversion?.report.heroArmorChanges||armorConversion?.report.heroArmorChanges||[],
+    nativeDowngrade:nativeConversion?.report||null,nativeConversion,armorConversion,nativePlan,nativePayload};
 }
 
 export function repairSave(input,{profile=PROFILE}={}){
@@ -181,6 +192,7 @@ export function repairSave(input,{profile=PROFILE}={}){
   const inspection=inspectSave(data,{profile});
   if(inspection.status!=='repair')return {data,inspection,changedOffsets:[]};
   if(inspection.nativeConversion)return nativeDowngrade(data,inspection,profile);
+  if(inspection.armorConversion)return armorRepair(data,inspection,profile);
   if(inspection.flagOnly){const fixed=restoreAssetFlag(data,{profile});return {data:fixed.data,inspection,changedOffsets:[],assetFlagRestored:fixed.restored};}
   const old=inspection.first;const raw=old.slice();const info=inspection.info;
   const decoded=info.decoded.slice();const checksum=unhex(inspection.targetChecksum);
@@ -219,6 +231,26 @@ export function repairSave(input,{profile=PROFILE}={}){
   check(equal(repaired.subarray(80+comp.length),data.subarray(inspection.firstEnd)),'An untouched compressed block changed.');
   check(u32(repaired,64)===headerCRC(repaired.subarray(0,68))&&u32(repaired,32)===repaired.length,'Output container verification failed.');
   return {data:repaired,inspection,changedOffsets};
+}
+
+// Repair cached hero armor in a previously downgraded checkpoint, also applying any
+// pending projectile/checksum conversion. Full repacking retains all other payload bytes.
+function armorRepair(data,inspection,profile){
+  let raw=inspection.armorConversion.raw;
+  if(inspection.nativePlan){
+    const padded=new Uint8Array(inspection.nativePayload.length);padded.set(raw);
+    const converted=applyProjectilePlan(padded,inspection.nativePlan,u32(data,40));
+    raw=converted.raw.subarray(0,converted.payloadSize);
+  }
+  const info=identity(raw),decoded=info.decoded.slice(),checksum=unhex(inspection.targetChecksum);
+  decoded.set(checksum,9);const encoded=encodeSettings(decoded);
+  check(encoded.length===info.settingsEnd-info.settingsStart,'The encoded settings length changed.');
+  raw.set(encoded,info.settingsStart);raw.set(checksum,info.plainOffset);
+  const output=repack(data,raw,u16(data,56)),verified=inspectSave(output,{profile});
+  check((verified.status==='current'||verified.flagOnly)&&verified.heroArmorRepairs===0&&verified.projectileRepairCount===0,'Hero armor output verification failed.');
+  check(equal(output.subarray(48,64),data.subarray(48,64)),'Save build or duration changed.');
+  return {data:output,inspection,changedOffsets:[],heroArmorRepairs:inspection.heroArmorRepairs,
+    heroArmorChanges:inspection.heroArmorChanges,projectileRepairs:inspection.projectileRepairCount};
 }
 
 // Native 3.0.1 save -> 3.0.0: converted payload, restored map checksum, build 7000, every block recompressed.

@@ -5,6 +5,7 @@
 const encoder=new TextEncoder(),decoder=new TextDecoder();
 const ESPI=encoder.encode('espi'),UNIT=encoder.encode('lga+u3w+'),MISSILE=encoder.encode('lga+bdUM'),CAMERA=encoder.encode('lga+mac+');
 const AGENT=encoder.encode('lga+'),BUFF=encoder.encode('bdUB');
+const HERO=encoder.encode('lga+reHA'),HERO_TAG=encoder.encode('reHA');
 // A projectile's model path is printable and ends in .mdl/.mdx with a terminating zero.
 function modelAt(body,at){
   const end=body.indexOf(0,at);
@@ -296,11 +297,53 @@ function states(raw,native=layout(raw)){
     const key=id(body.subarray(36,44)),type=native.types.get(key);
     if(!type||!same(type.subarray(0,4),AGENT))continue;
     check(!result.has(key),'duplicate native state');check(b.pos+8+b.size<=limit,'native state leaves its parent');
-    result.set(key,{type,pos:b.pos,size:b.size});
+    result.set(key,{type,pos:b.pos,size:b.size,owner:id(body.subarray(44,52)),constructorSize:a.size});
   }
   const units=[...native.types.values()].filter(type=>same(type,UNIT)).length;
   check([...result.values()].filter(row=>same(row.type,UNIT)).length===units,'not every unit state was identified');
   return result;
+}
+
+// AHer caches the Agility-derived armor and attack-speed contributions separately.
+// Paired Capital saves (same inventory/stats, before/after an Agility-item toggle) locate
+// armor at end-184, speed at end-172, and total unit armor at end-675 in build 7000.
+// 3.0.0 itself writes .14*Agility-2 for newly created heroes and .30*Agility-2 once it
+// recalculates (an Agility item change, and in long sessions for every hero); 3.0.1 kept
+// .14. Speed independently supplies .02*Agility. Match that observed profile per hero so
+// already recalculated heroes are safe. Unknown profiles and layouts are skipped and
+// counted, never blocking a save: this only does what the game's recalculation would.
+export function repairHeroArmor(payload){
+  const report={heroArmorRepairs:0,heroArmorChanges:[],heroArmorSkipped:0};
+  if(find(payload,HERO)<0)return {raw:payload,report};
+  let records;
+  try{records=states(payload);}catch{report.heroArmorLayoutUnrecognized=true;return {raw:payload,report};}
+  const used=new Set();let work=null;
+  const skip=()=>{report.heroArmorSkipped++;};
+  for(const [key,row] of records){
+    if(!same(row.type,HERO))continue;
+    const body=payload.subarray(row.pos+8,row.pos+8+row.size),unit=records.get(row.owner);
+    if(!(row.constructorSize===176&&body.length>=304&&(body.length-304)%4===0&&
+      same(body.subarray(36,40),HERO_TAG)&&same(body.subarray(68,72),HERO_TAG))){skip();continue;}
+    if(!(unit&&same(unit.type,UNIT)&&unit.size>=675&&!used.has(row.owner))){skip();continue;}
+    const unitBody=payload.subarray(unit.pos+8,unit.pos+8+unit.size);
+    if(find(unitBody,Uint8Array.from(key.match(/../g),x=>parseInt(x,16)))<0){skip();continue;}
+    used.add(row.owner);
+    const primary=u32(body,body.length-152),armor=dv(body).getFloat32(body.length-184,true),speed=dv(body).getFloat32(body.length-172,true);
+    const agility=Math.round(speed/.02),close=(a,b)=>Math.abs(a-b)<=.0001;
+    if(![1,2,3].includes(primary)||!Number.isFinite(armor)||!Number.isFinite(speed)||agility<0||agility>100000||
+       !close(speed/.02,agility)||(primary===3&&!close(dv(body).getFloat32(body.length-192,true),agility))){skip();continue;}
+    const target=Math.fround(.30*agility-2);
+    if(close(armor,target))continue;
+    if(!close(armor,.14*agility-2)){skip();continue;}
+    const armorOffset=row.pos+8+row.size-184,unitArmorOffset=unit.pos+8+unit.size-675,oldTotal=dv(payload).getFloat32(unitArmorOffset,true);
+    if(!Number.isFinite(oldTotal)){skip();continue;}
+    const total=Math.fround(oldTotal+(target-armor));
+    work??=payload.slice();
+    dv(work).setFloat32(armorOffset,target,true);dv(work).setFloat32(unitArmorOffset,total,true);
+    report.heroArmorChanges.push({heroId:row.owner,abilityId:key,agility,from:armor,to:target,unitFrom:oldTotal,unitTo:total,armorOffset,unitArmorOffset});
+    report.heroArmorRepairs++;
+  }
+  return {raw:work||payload,report};
 }
 function validateLengths(raw){
   const native=layout(raw),parent=native.first[0].pos-376;
@@ -373,5 +416,6 @@ function migrateCamera(raw){
 export function downgradeNativePayload(payload){
   validateLengths(payload);
   const api=migrateApi(payload),native=migrateNative(api.raw),camera=migrateCamera(native.raw);
-  return {raw:camera.raw,report:{...api.report,...native.report,...camera.report}};
+  const armor=repairHeroArmor(camera.raw);
+  return {raw:armor.raw,report:{...api.report,...native.report,...camera.report,...armor.report}};
 }

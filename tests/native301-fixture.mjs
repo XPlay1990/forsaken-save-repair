@@ -74,8 +74,9 @@ function missile(model,legacy,id){
   new DataView(body.buffer).setUint32(at+path.length+8,id[0],true);new DataView(body.buffer).setUint32(at+path.length+12,id[1],true);
   return body;
 }
-function native({legacy,waits,scriptUses,missiles=[],order={}}){
-  const objects=[['lga+u3w+',[1,2]],['lga+tset',[3,4]],...missiles.map((_,i)=>['lga+bdUM',[20+i,30+i]]),['fda^fda^',[5,6]]];
+function native({legacy,waits,scriptUses,missiles=[],heroes=[],order={}}){
+  const heroObjects=heroes.flatMap((_,i)=>[['lga+u3w+',[100+i,200+i]],['lga+reHA',[300+i,400+i]]]);
+  const objects=[['lga+u3w+',[1,2]],['lga+tset',[3,4]],...missiles.map((_,i)=>['lga+bdUM',[20+i,30+i]]),...heroObjects,['fda^fda^',[5,6]]];
   const allocation=new Writer().text('espi').u32(4+16*objects.length).u32(objects.length);
   for(const [type,[a,b]] of objects)allocation.text(type).u32(a).u32(b);
   const aux=new Writer().u32(4+16*3).u32(3).text('fda^fda^').u32(9).u32(9).text('lga+mac+').u32(10).u32(10).text('lga+ksat').u32(11).u32(11).done();
@@ -87,8 +88,26 @@ function native({legacy,waits,scriptUses,missiles=[],order={}}){
   const root=(leaves,trailer)=>new Writer().u32(8).text('rootHead').bytes(Buffer.concat(leaves.map(record))).bytes(trailer).done();
   const auxCtor=root([new Uint8Array(40).fill(4),new Uint8Array(40).fill(5)],encoder.encode('espi'));
   const auxState=root([camera,new Uint8Array(24).fill(6)],new Uint8Array(4));
-  const first=[record(ctor(1,2)),record(ctor(3,4)),...missiles.map((_,i)=>record(ctor(20+i,30+i))),record(auxCtor)];
-  const second=[record(unit),record(new Uint8Array(48).fill(8)),...missiles.map((model,i)=>record(missile(model,legacy,[20+i,30+i]))),record(auxState)];
+  const heroCtors=[],heroStates=[];
+  for(const [i,h] of heroes.entries()){
+    const uc=ctor(100+i,200+i),hc=new Uint8Array(176);hc.set(ctor(300+i,400+i));
+    const cv=new DataView(hc.buffer);cv.setUint32(44,100+i,true);cv.setUint32(48,200+i,true);
+    heroCtors.push(record(uc),record(hc));
+    const ub=unit.slice(),uv=new DataView(ub.buffer),hb=new Uint8Array(h.size??304),hv=new DataView(hb.buffer);
+    // An independently saved Agility-derived speed contribution distinguishes stale from current armor.
+    hb.set(encoder.encode('reHA'),36);hb.set(encoder.encode('reHA'),68);
+    hv.setUint32(hb.length-152,h.primary??3,true);
+    hv.setFloat32(hb.length-192,h.primaryValue??h.agility,true);
+    hv.setFloat32(hb.length-172,h.speed??Math.fround(h.agility*.02),true);
+    const coefficient=h.coefficient??.14;
+    const armor=h.armor??(coefficient===.14?Math.fround(Math.fround(h.agility*Math.fround(.14))-2):Math.fround(h.agility*coefficient-2));
+    hv.setFloat32(hb.length-184,armor,true);
+    uv.setFloat32(ub.length-(legacy?675:695),Math.fround(armor+(h.flatArmor??2)),true);
+    uv.setUint32(legacy?128:132,300+i,true);uv.setUint32(legacy?132:136,400+i,true);
+    heroStates.push(record(ub),record(hb));
+  }
+  const first=[record(ctor(1,2)),record(ctor(3,4)),...missiles.map((_,i)=>record(ctor(20+i,30+i))),...heroCtors,record(auxCtor)];
+  const second=[record(unit),record(new Uint8Array(48).fill(8)),...missiles.map((model,i)=>record(missile(model,legacy,[20+i,30+i]))),...heroStates,record(auxState)];
   const head=allocation.done(),early=new Uint8Array(1024);
   early.set(aux);
   const firstBytes=Buffer.concat(first),parent=early.length-376,gap=new Uint8Array(32);
@@ -100,10 +119,10 @@ function native({legacy,waits,scriptUses,missiles=[],order={}}){
   header.u32(lua.length+16).u32(lua.length);
   return Buffer.concat([head,early,firstBytes,new Writer().u32(toLast).done(),gap,secondBytes,header.done(),lua,new Uint8Array(12),encoder.encode('8f31461c-tail')]);
 }
-export function native301Fixture({map=scarlet,legacy=false,waits=[2],scriptUses=null,missiles=[],checksum,build,doNothingLast,emptyBefore}={}){
+export function native301Fixture({map=scarlet,legacy=false,waits=[2],scriptUses=null,missiles=[],heroes=[],checksum,build,doNothingLast,emptyBefore}={}){
   const profileMap=DOWNGRADE_PROFILE.maps.find(row=>row.id===map.id);
   const sum=checksum??(legacy?profileMap.current:profileMap.old),initial=fixture(map,sum,build??(legacy?7000:7003)).data;
-  const identity=inspectSave(initial,{profile:PROFILE}).first,body=native({legacy,waits,scriptUses,missiles,order:{doNothingLast,emptyBefore}});
+  const identity=inspectSave(initial,{profile:PROFILE}).first,body=native({legacy,waits,scriptUses,missiles,heroes,order:{doNothingLast,emptyBefore}});
   const meaningful=4096+body.length,raw=new Uint8Array(Math.ceil(meaningful/BLOCK)*BLOCK);
   raw.set(identity.subarray(0,512));raw.set(body,4096);
   const blocks=[];

@@ -74,7 +74,7 @@ test('worker downgrades a 3.0.1 checkpoint and companions as <name>_downgraded_3
   try{
     await import('../dist/worker.mjs?native-downgrade');
     const map=profile.maps.find(row=>row.id==='undeadre02_06'),companionMap=profile.maps.find(row=>row.id==='undeadre02');
-    const main=native301Fixture({map,waits:[2]}),companion=native301Fixture({map:companionMap,waits:[]});
+    const main=native301Fixture({map,waits:[2],heroes:[{agility:50}]}),companion=native301Fixture({map:companionMap,waits:[],heroes:[{agility:37,primary:1,primaryValue:63}]});
     await self.onmessage({data:{type:'listFolder',profileId:profile.id,files:[make('ForsakenKingdom/Slot.w3z',main),make('ForsakenKingdom/FKManualSaves/Slot/UndeadRE02.w3z',companion)]}});
     await self.onmessage({data:{type:'checkpoint',path:'ForsakenKingdom/Slot.w3z'}});
     assert.equal(messages.at(-1).type,'analyzed',messages.at(-1).message);
@@ -84,7 +84,10 @@ test('worker downgrades a 3.0.1 checkpoint and companions as <name>_downgraded_3
     assert.deepEqual(zip['Slot_downgraded_3.0.0.w3z'],repairSave(main,{profile}).data);
     const report=JSON.parse(new TextDecoder().decode(zip['forsaken-repair-report.json']));
     assert.equal(report.repairMode,'native-3.0.1-downgrade');
-    assert.ok(report.changed.every(row=>row.nativeDowngrade?.units===1));
+    assert.ok(report.changed.every(row=>row.nativeDowngrade?.units===2));
+    assert.ok(report.saves.every(row=>row.heroArmorRepairs===1));
+    assert.ok(report.changed.every(row=>row.heroArmorRepairs===1));
+    assert.equal(inspectSave(zip['Slot_downgraded_3.0.0.w3z'],{profile}).heroArmorRepairs,0);
   }finally{delete globalThis.self;}
 });
 
