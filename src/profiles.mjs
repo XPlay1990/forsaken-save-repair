@@ -12,13 +12,12 @@ function targets(from,to,tested,order=[]){
 }
 const common={gameIdentifier:0x57335850,gameVersion:10200};
 
-// Upgrade: pre-3.0.1 saves to the 3.0.1 maps. Disabled while Blizzard ships 3.0.0; enable
-// again (and refresh 3.0.1 checksums in map-versions.mjs) if the 3.0.1 maps return.
+// Upgrade: pre-3.0.1 saves to the 3.0.1 maps. Re-enabled for patch 3.0.1.
 // Any non-target checksum is replaced: the serialization build does not identify the source patch.
 export const PROFILE = Object.freeze({
   ...common,id:'forsaken-all-maps-to-301',name:'Forsaken Kingdom · Upgrade',
   from:'pre-3.0.1',to:'3.0.1',build:patch('3.0.1').executable.split('.').at(-1),
-  direction:'upgrade',enabled:false,experimental:true,strictSource:false,serializationBuilds:[7000,7003],
+  direction:'upgrade',enabled:true,experimental:true,strictSource:false,serializationBuilds:[7000,7003],
   sourcePolicy:'Validated campaign save format; every non-target checksum is replaced with the archive-derived 3.0.1 target. Source patch cannot be inferred from the serialization build.',
   verification:'All 20 targets derived from authenticated 3.0.1 archives; seven matched current-save donors. Player-tested Act One locations: Undercity / Trade Quarter, Capital City Ruins and Tirisfal Glades, including travel and saving. Player-tested Act Two locations: Undercity starting map from their own save, Scarlet Monastery and Dawn\'s Watch from Neo saves. Scarlet checkpoints (1)-(6) loaded, including targeted Deathseeker migration on (2)-(5); (4) also saved and reloaded. All available Neo saves reported working. Other maps and full campaign progression remain unconfirmed. The exact projectile layouts are migrated across recognized maps, including companions; paired forward/reverse engine validation is specific to Scarlet.',
   maps:targets('3.0.0','3.0.1','upgrade',['undeadre01','undeadre01_02','undeadre01_03'])
@@ -32,7 +31,7 @@ export const DOWNGRADE_PROFILE = Object.freeze({
   verification:'All 20 downgrade targets extracted from authenticated installed rollback archives (content manifest 3.0.0.24248; running executable 3.0.0.24268); nine match original save controls. Reversing a repaired Scarlet Monastery (4) produced a byte-identical original that loaded in the restored game. Six Scarlet Monastery checkpoints saved by 3.0.1, from the start through the later boss state, were converted, loaded, re-saved and reloaded in 3.0.0. A renamed Cathedral bundle with its Act One zone snapshots (including travel) and an Act One progress save also worked. Experimental: other maps remain unconfirmed, and a Cathedral save made just before the boss transition loads with missing models.',
   maps:targets('3.0.1','3.0.0','downgrade')
 });
-export const PROFILES=Object.freeze([DOWNGRADE_PROFILE,PROFILE]);
+export const PROFILES=Object.freeze([PROFILE,DOWNGRADE_PROFILE]);
 export function conversionProfile(id){return PROFILES.find(profile=>profile.id===id);}
 export function mapProfile(path,profile=PROFILE){
   const map=mapByPath(path);

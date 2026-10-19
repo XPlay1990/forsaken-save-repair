@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Re-enable the Upgrade tab (3.0.0 → 3.0.1) now that patch 3.0.1 is available again.
+
 - Hero armor from Agility: 3.0.0 writes 0.14 per Agility point for newly created heroes
   and 0.30 once it recalculates; heroes saved under 3.0.1 keep 0.14, so Anya and Garek
   showed reduced or negative base armor in Act One until an Agility item was toggled.

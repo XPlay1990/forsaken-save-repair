@@ -34,7 +34,6 @@ function renderTested(direction){
 function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
   $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':'Experimental: repairs older saves for Warcraft III 3.0.1. Keep your originals.';
-  if(!available($('tab-upgrade')))$('tab-upgrade').title='Available again if Blizzard re-releases patch 3.0.1.';
   renderTested(down?'downgrade':'upgrade');
   $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':'For saves from before patch 3.0.1, targeting Warcraft III 3.0.1.24342.'} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
