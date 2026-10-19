@@ -33,7 +33,7 @@ test('both conversion directions are derived from the per-patch table',()=>{
     assert.equal(up.current,map.checksums['3.0.1']);assert.equal(up.old,map.checksums['3.0.0']);
     assert.equal(down.current,map.checksums['3.0.0']);assert.equal(down.old,map.checksums['3.0.1']);
   }
-  assert.equal(DOWNGRADE_PROFILE.enabled,true);assert.equal(PROFILE.enabled,false,'Upgrade stays disabled until the 3.0.1 maps return');
+  assert.equal(DOWNGRADE_PROFILE.enabled,true);assert.equal(PROFILE.enabled,true,'Upgrade enabled for patch 3.0.1');
 });
 
 test('all installed maps are eligible for checksum repair with explicit game-test provenance',()=>{
