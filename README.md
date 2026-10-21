@@ -9,8 +9,10 @@ The site has two tabs, both **experimental**:
 
 - **Upgrade** (default): saves from 3.0.0 and from the first 3.0.1 release
   (3.0.1.24342) → the re-released Warcraft III 3.0.1.24371.
-- **Downgrade**: saves from patch 3.0.1.24342 → the restored Warcraft III 3.0.0
-  that Blizzard had rolled back to.
+- **Downgrade** (disabled): saves from patch 3.0.1.24342 → the restored Warcraft III
+  3.0.0 that Blizzard had rolled back to. Blizzard has since replaced 3.0.0 with
+  3.0.1.24371, so the tab is disabled; it can be previewed locally with
+  `?preview=downgrade`.
 
 ## Downgrade to restored 3.0.0
 

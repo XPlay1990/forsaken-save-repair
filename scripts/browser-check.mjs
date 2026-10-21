@@ -27,8 +27,11 @@ try{
   assert.match(await page.locator('#tab-downgrade').textContent(),/Experimental/);
   assert.match(await page.locator('#tab-upgrade').textContent(),/Experimental/);
   assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-disabled'),'false');
+  // Downgrade is disabled (restored 3.0.0 replaced); its URL falls back to upgrade.
+  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-disabled'),'true');
+  assert.match(await page.locator('#tab-downgrade').getAttribute('title'),/no longer be loaded/);
   await page.goto(site+'?tab=d#downgrade');
-  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true');
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'true');
   await page.goto(site+'?tab=u#upgrade');
   assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'true');
   assert.match(await page.locator('#target-note').textContent(),/3\.0\.1\.24371/);
@@ -45,7 +48,7 @@ try{
   assert.equal(await page.locator('#instructions-title').isVisible(),true);
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
   assert.match(await page.locator('.instruction-list').textContent(),/original saves are not replaced/);
-  assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
+  assert.match(await page.locator('.instruction-list').textContent(),/_upgraded_3\.0\.1\.24371/);
   // Tested maps per act come from the map table for the active direction and target build.
   const tested=await page.locator('.limitations-list').textContent();
   assert.match(tested,/Act OneTested: Undercity \/ Trade Quarter\./);
@@ -222,7 +225,8 @@ try{
     const companion=nativeFixture({map:companionMap,current:true,checksum:companionMap.old});
     await mkdir(path.join(folder,stored),{recursive:true});
     await writeFile(path.join(folder,main),input);await writeFile(path.join(folder,snapshot),companion);
-    await page.locator('#clear').click();await page.locator('#folder-input').setInputFiles(folder);
+    // The downgrade flows below run through the local preview switch.
+    await page.goto(site+'?preview=downgrade');await page.locator('#folder-input').setInputFiles(folder);
     await page.locator('#save-picker').waitFor({state:'visible'});
     // Reuse the selected folder when the user changes game version.
     await page.locator('#tab-downgrade').click();

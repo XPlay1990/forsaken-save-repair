@@ -27,10 +27,11 @@ export const PROFILE = Object.freeze({
   maps:targets(['3.0.0','3.0.1'],'3.0.1.24371','upgrade-3.0.1.24371',['undeadre01','undeadre02','undeadre03a'])
 });
 // Downgrade: 3.0.1 saves, including ones written by the 3.0.1 game (build 7003), to restored 3.0.0.
+// Disabled since Blizzard replaced the restored 3.0.0 with 3.0.1.24371 (preview: ?preview=downgrade).
 export const DOWNGRADE_PROFILE = Object.freeze({
   ...common,id:'forsaken-all-maps-to-300',name:'Forsaken Kingdom · Downgrade',
   from:'3.0.1',to:'3.0.0',build:patch('3.0.0').executable.split('.').at(-1),
-  direction:'downgrade',enabled:true,experimental:true,strictSource:true,serializationBuilds:[7000],nativeBuilds:[7003],
+  direction:'downgrade',enabled:false,experimental:true,strictSource:true,serializationBuilds:[7000],nativeBuilds:[7003],
   sourcePolicy:'Only the verified 3.0.1 or restored 3.0.0 map checksum is accepted. Website repairs (build 7000) keep their build and saved scripts; the exact Deathseeker native layout is reversed. Stale hero armor caches matching the independently saved Agility contribution are recalculated for 3.0.0 in both save builds; already corrected and unknown profiles are preserved. Saves written by 3.0.1 (build 7003) additionally convert the 3.0.1 unit and camera fields, map 18 renamed natives back to their 3.0.0 names and remove unused 3.0.1-only native bindings. Calls with known replacements use reported fallbacks; other 3.0.1-only script calls are blocked.',
   verification:'All 20 downgrade targets extracted from authenticated installed rollback archives (content manifest 3.0.0.24248; running executable 3.0.0.24268); nine match original save controls. Reversing a repaired Scarlet Monastery (4) produced a byte-identical original that loaded in the restored game. Six Scarlet Monastery checkpoints saved by 3.0.1, from the start through the later boss state, were converted, loaded, re-saved and reloaded in 3.0.0. A renamed Cathedral bundle with its Act One zone snapshots (including travel) and an Act One progress save also worked. Experimental: other maps remain unconfirmed, and a Cathedral save made just before the boss transition loads with missing models.',
   maps:targets(['3.0.1'],'3.0.0','downgrade')

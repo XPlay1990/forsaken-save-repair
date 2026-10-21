@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Disable the Downgrade tab: Blizzard replaced the restored 3.0.0 with 3.0.1.24371, so
+  downgraded saves can no longer be loaded. It stays available locally with
+  `?preview=downgrade`.
 - Re-enable the Upgrade tab (3.0.0 → 3.0.1) now that patch 3.0.1 is available again.
 - Upgrade now targets the re-released 3.0.1.24371. Blizzard changed 16 of the 20
   campaign maps, so upgraded saves (and saves of the first 3.0.1 release, 24342) no

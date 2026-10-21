@@ -44,7 +44,7 @@ test('both conversion directions are derived from the per-patch table',()=>{
     assert.equal(down.current,map.checksums['3.0.0']);assert.equal(down.old,map.checksums['3.0.1']);
   }
   assert.equal(PROFILE.to,'3.0.1.24371');assert.equal(PROFILE.build,'24371');
-  assert.equal(DOWNGRADE_PROFILE.enabled,true);assert.equal(PROFILE.enabled,true,'Upgrade enabled for patch 3.0.1');
+  assert.equal(DOWNGRADE_PROFILE.enabled,false,'Downgrade disabled: the restored 3.0.0 was replaced by 3.0.1.24371');assert.equal(PROFILE.enabled,true,'Upgrade enabled for patch 3.0.1');
 });
 
 test('every installed map converts to 3.0.1.24371 with game-test provenance per target build',()=>{

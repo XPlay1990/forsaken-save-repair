@@ -39,6 +39,7 @@ function renderTested(direction){
 function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
   $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':`Experimental: converts 3.0.0 saves and saves from the first 3.0.1 release for Warcraft III ${upgradeProfile().to}. Keep your originals.`;
+  if(!available($('tab-downgrade')))$('tab-downgrade').title='Blizzard replaced the restored 3.0.0 with 3.0.1.24371, so downgraded saves can no longer be loaded.';
   renderTested(down?'downgrade':'upgrade');
   $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':`For saves from 3.0.0 and the first 3.0.1 release (3.0.1.24342), targeting Warcraft III ${upgradeProfile().to}.${upgradeProfile().maps.length<MAPS.length?` Maps without a known ${upgradeProfile().to} checksum are copied unchanged and will not load yet; supported so far: ${upgradeProfile().maps.map(map=>map.name).join(', ')}.`:''}`} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
