@@ -1,6 +1,7 @@
 /** Campaign maps and their map checksum per Warcraft III patch.
  * Checksums were derived from the authenticated archives of each installed patch with the
- * engine XOR/rotate routine; no game data is included. A checksum is four stored bytes in
+ * engine XOR/rotate routine (3.0.1.24371: research/forsaken-campaign/extract_map_checksums_24371.py,
+ * checked against saves that build wrote); no game data is included. A checksum is four stored bytes in
  * byte order, rendered as hex. To support a new patch, add it to PATCHES and add its column
  * to every map's checksums. evidence records independent save controls; gameTested records
  * player confirmation per conversion direction. Naming alone never enables conversion.
@@ -10,10 +11,9 @@ export const PATCHES = Object.freeze([
     source:'Restored rollback installation; nine targets match original pre-3.0.1 saves.'},
   {version:'3.0.1', executable:'3.0.1.24342', content:null, saveBuild:7003,
     source:'Installed 3.0.1 archives; seven targets match current-save donors.'},
-  // Re-released 3.0.1 with changed maps. Checksums come only from saves the game wrote on
-  // each map (donors); maps without a donor have no entry and are not converted to it.
+  // Re-released 3.0.1 with changed maps (16 of 20 checksums differ from 24342).
   {version:'3.0.1.24371', executable:'3.0.1.24371', content:null, saveBuild:7003,
-    source:'Saves written by 3.0.1.24371 on each listed map.'},
+    source:'Installed 3.0.1.24371 archives; three targets match saves that build wrote.'},
 ].map(Object.freeze));
 export const MAPS = Object.freeze([
   {
@@ -27,13 +27,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "b25f80d8",
-      "3.0.1": "ca9a5714"
+      "3.0.1": "ca9a5714",
+      "3.0.1.24371": "8c07f57b"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -53,13 +57,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "cf967337",
-      "3.0.1": "b4eccbd3"
+      "3.0.1": "b4eccbd3",
+      "3.0.1.24371": "10e535f9"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -79,13 +87,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "63b65eae",
-      "3.0.1": "91350542"
+      "3.0.1": "91350542",
+      "3.0.1.24371": "91350542"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -105,13 +117,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "4ced8316",
-      "3.0.1": "d7b54f10"
+      "3.0.1": "d7b54f10",
+      "3.0.1.24371": "cfb62a0a"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -131,13 +147,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "6b5baefc",
-      "3.0.1": "0c7bceae"
+      "3.0.1": "0c7bceae",
+      "3.0.1.24371": "0c7bceae"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -178,7 +198,8 @@ export const MAPS = Object.freeze([
     },
     "gameTested": {
       "upgrade": true,
-      "downgrade": true
+      "downgrade": true,
+      "upgrade-3.0.1.24371": true
     }
   },
   {
@@ -192,7 +213,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre01-02_capitalruins.png",
     "checksums": {
       "3.0.0": "5035caa4",
-      "3.0.1": "9ef8ba27"
+      "3.0.1": "9ef8ba27",
+      "3.0.1.24371": "f3db0a5f"
     },
     "evidence": {
       "3.0.0": {
@@ -200,6 +222,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": false
       }
     },
     "gameTested": {
@@ -218,7 +243,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre01-03_tirisfalglades.png",
     "checksums": {
       "3.0.0": "aa301d70",
-      "3.0.1": "990b99db"
+      "3.0.1": "990b99db",
+      "3.0.1.24371": "42c51a04"
     },
     "evidence": {
       "3.0.0": {
@@ -226,6 +252,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": false
       }
     },
     "gameTested": {
@@ -244,13 +273,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre01-04_silverpinesprint.png",
     "checksums": {
       "3.0.0": "f76f7cb3",
-      "3.0.1": "29dee716"
+      "3.0.1": "29dee716",
+      "3.0.1.24371": "f1b623af"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -270,7 +303,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre01-05_arcanesanctuary.png",
     "checksums": {
       "3.0.0": "95bca574",
-      "3.0.1": "e3d412fe"
+      "3.0.1": "e3d412fe",
+      "3.0.1.24371": "fa4acd05"
     },
     "evidence": {
       "3.0.0": {
@@ -278,6 +312,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": false
       }
     },
     "gameTested": {
@@ -296,7 +333,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre01-06_cathedral.png",
     "checksums": {
       "3.0.0": "306f971b",
-      "3.0.1": "eb044a18"
+      "3.0.1": "eb044a18",
+      "3.0.1.24371": "9d320a82"
     },
     "evidence": {
       "3.0.0": {
@@ -304,6 +342,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": false
       }
     },
     "gameTested": {
@@ -338,7 +379,8 @@ export const MAPS = Object.freeze([
     },
     "gameTested": {
       "upgrade": true,
-      "downgrade": true
+      "downgrade": true,
+      "upgrade-3.0.1.24371": true
     }
   },
   {
@@ -352,13 +394,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02-01_forgottenhollow.png",
     "checksums": {
       "3.0.0": "62cc0065",
-      "3.0.1": "c8cc7766"
+      "3.0.1": "c8cc7766",
+      "3.0.1.24371": "a092a8ed"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -378,13 +424,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02-02_tirisfalgladesvillages.png",
     "checksums": {
       "3.0.0": "999a497c",
-      "3.0.1": "82f43adf"
+      "3.0.1": "82f43adf",
+      "3.0.1.24371": "89cd0e25"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -404,13 +454,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02-03_blackrockencampment.png",
     "checksums": {
       "3.0.0": "817509f4",
-      "3.0.1": "19136c27"
+      "3.0.1": "19136c27",
+      "3.0.1.24371": "b30d0229"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -430,13 +484,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02-04_dawnswatch.png",
     "checksums": {
       "3.0.0": "55a8a738",
-      "3.0.1": "d156fd27"
+      "3.0.1": "d156fd27",
+      "3.0.1.24371": "38ecf93b"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -456,7 +514,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02-06_scarletmonastery.png",
     "checksums": {
       "3.0.0": "b0669dc1",
-      "3.0.1": "3cb04734"
+      "3.0.1": "3cb04734",
+      "3.0.1.24371": "d5c7189b"
     },
     "evidence": {
       "3.0.0": {
@@ -464,6 +523,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": false
       }
     },
     "gameTested": {
@@ -512,13 +574,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre03b_naxxramas.png",
     "checksums": {
       "3.0.0": "86e7d080",
-      "3.0.1": "c6d586ec"
+      "3.0.1": "c6d586ec",
+      "3.0.1.24371": "b3b9889f"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },
@@ -538,13 +604,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:ui\\campaigninfodlc01.txt + English globalstrings.fdf",
     "checksums": {
       "3.0.0": "9bd1600b",
-      "3.0.1": "9bd1600b"
+      "3.0.1": "9bd1600b",
+      "3.0.1.24371": "9bd1600b"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": false
       },
       "3.0.1": {
+        "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": false
       }
     },

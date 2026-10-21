@@ -95,11 +95,14 @@ playthrough remain unconfirmed.
 Blizzard re-released patch 3.0.1 as build 3.0.1.24371 with changed campaign maps, so
 saves of the first 3.0.1 release (24342) no longer load either. The save format is
 unchanged (build 7003), so 3.0.0 and 3.0.1.24342 saves need only the new map
-checksum. Each 3.0.1.24371 target comes from a save that build wrote on that map
-(`src/map-versions.mjs`); so far Act One Undercity / Trade Quarter (`c25954e3`),
-Act Two Undercity (`c97c51ea`) and Act Three Capital City Ruins (`66ed1037`,
-unchanged from 24342). Saves of other maps are copied unchanged with a reason until
-a donor save provides their checksum; a main save on such a map cannot be exported.
+checksum. All 20 targets come from the installed 3.0.1.24371 archives, computed with
+the same routine as before; only the checksums are kept. The three saves that build
+wrote (Act One and Act Two Undercity, Act Three Capital City Ruins) match exactly.
+16 of the 20 maps changed; Lightbringer, Vengeance, Capital City Ruins (Act Three) and
+A Looming Shadow kept their 24342 checksums. Converted 3.0.1.24342 (Act Two Undercity)
+and 3.0.0 (Act One and Act Two Undercity) saves loaded in 3.0.1.24371; travel and
+other maps are not yet confirmed. A map without a known target would be copied
+unchanged with a reason.
 
 Identity repair updates both map-checksum fields and the container CRCs while
 preserving the save build. Unknown maps are copied unchanged; an unknown main map

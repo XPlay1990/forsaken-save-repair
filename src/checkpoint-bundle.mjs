@@ -10,6 +10,11 @@ export function indexFolder(files){
   return {entries,checkpoints:checkpoints.map(entry=>({path:entry.path,name:entry.path.split('/').at(-1).slice(0,-4),size:entry.blob.size}))};
 }
 
+// Working zone folders hold the live state of the current run, not a checkpoint's
+// companions: Blizzard\Zones (the 3.0.1 travel script) and ForsakenKingdom\ (the 3.0.0 travel
+// script's FKTC.Save.ZoneSaveFolder).
+const workingZones=parts=>parts.some(part=>/^zones$/i.test(part))||/^forsakenkingdom$/i.test(parts[0]);
+
 // References can span compressed-block boundaries. Collect directory names,
 // never rewrite the saved Lua strings or use another checkpoint's working Zones.
 export function companionReferenceScanner(){
@@ -17,7 +22,7 @@ export function companionReferenceScanner(){
   const add=(value,file)=>{
     try{
       const path=safePath(value),parts=path.split('/');
-      if(parts.length<2||parts.some(part=>/^zones$/i.test(part)))return;
+      if(parts.length<2||workingZones(parts))return;
       const folder=file?parts.slice(0,-1).join('/'):path;
       folders.add(folder);if(file)files.add(path);
     }catch{/* A stored string must be a safe campaign-relative path. */}
@@ -47,7 +52,7 @@ export function checkpointBundle(inventory,path,references=[],requiredFiles=[]){
   const main=inventory.find(entry=>entry.path===path);
   if(!main)throw Error('This save is no longer in the selected folder.');
   const parent=path.slice(0,path.lastIndexOf('/')+1),stem=path.split('/').at(-1).slice(0,-4);
-  const validFolder=folder=>{const normalized=safePath(folder);if(normalized.split('/').some(part=>/^zones$/i.test(part)))return null;return normalized;};
+  const validFolder=folder=>{const normalized=safePath(folder);if(workingZones(normalized.split('/')))return null;return normalized;};
   const available=folder=>inventory.some(entry=>entry.path.toLowerCase().startsWith(`${parent}${folder}/`.toLowerCase()));
   const original=stem.replace(/_repaired(?:_\d+)?$/i,'');
   const referencesByCase=new Map();

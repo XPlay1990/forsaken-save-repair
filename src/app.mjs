@@ -20,8 +20,10 @@ function selectTab(tab){
 }
 // Maps tested in game per act for the active direction, straight from the map table.
 // Optional third entry: a note per direction, shown after the tested maps.
-const ACT_TWO_TRAVEL="Areas first entered under 3.0.1 keep their 3.0.1 travel scripts: these saves load, but travelling to another area loses hero items and skill points, and areas you return to start over. Fixing that means replacing them with the 3.0.0 scripts, which are Blizzard's code and cannot be distributed here.";
-const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two'],{downgrade:ACT_TWO_TRAVEL}],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
+// 3.0.0 and 3.0.1 (both releases) use different Act Two travel scripts; saves keep the
+// script of the version an area was first entered in.
+const actTwoTravel=(from,to)=>`Areas first entered under ${from} keep their ${from} travel scripts: these saves load, but travelling to another area loses hero items and skill points, and areas you return to start over. Fixing that means replacing them with the ${to} scripts, which are Blizzard's code and cannot be distributed here.`;
+const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two'],{downgrade:actTwoTravel('3.0.1','3.0.0'),upgrade:actTwoTravel('3.0.0','3.0.1')}],['Act Three',['Act Three']],['Prologue and interlude',['Prologue','Interlude']]];
 function renderTested(direction){
   $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections,notes={}])=>{
     // Act One's Undercity map also holds the Trade Quarter (named as in profiles.mjs).
@@ -38,7 +40,7 @@ function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
   $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':`Experimental: converts 3.0.0 saves and saves from the first 3.0.1 release for Warcraft III ${upgradeProfile().to}. Keep your originals.`;
   renderTested(down?'downgrade':'upgrade');
-  $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':`For saves from 3.0.0 and the first 3.0.1 release (3.0.1.24342), targeting Warcraft III ${upgradeProfile().to}. Blizzard changed the maps in ${upgradeProfile().to}, so a map converts only once its new checksum is known from a save made in that version; so far: ${upgradeProfile().maps.map(map=>map.name).join(', ')}. Saves of other maps are copied unchanged and will not load yet.`} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
+  $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':`For saves from 3.0.0 and the first 3.0.1 release (3.0.1.24342), targeting Warcraft III ${upgradeProfile().to}.${upgradeProfile().maps.length<MAPS.length?` Maps without a known ${upgradeProfile().to} checksum are copied unchanged and will not load yet; supported so far: ${upgradeProfile().maps.map(map=>map.name).join(', ')}.`:''}`} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('Processing stopped. Try a smaller checkpoint.');}
 function setBusy(value){busy=value;setTabsDisabled(value);$('folder-button').disabled=value;$('another-save').disabled=value;$('clear').hidden=value;$('progress-area').hidden=!value;$('cancel').hidden=!value;updateExport();}

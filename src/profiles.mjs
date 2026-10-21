@@ -22,8 +22,8 @@ export const PROFILE = Object.freeze({
   ...common,id:'forsaken-all-maps-to-301',name:'Forsaken Kingdom · Upgrade',
   from:'3.0.0 / 3.0.1.24342',to:'3.0.1.24371',build:patch('3.0.1.24371').executable.split('.').at(-1),
   direction:'upgrade',enabled:true,experimental:true,strictSource:false,serializationBuilds:[7000,7003],
-  sourcePolicy:'Validated campaign save format; every non-target checksum is replaced with the 3.0.1.24371 target, which comes from a save that patch wrote on the same map. Maps without such a save yet are copied unchanged. Source patch cannot be inferred from the serialization build.',
-  verification:'3.0.1.24371 targets come from saves the game wrote on each map (Act One and Act Two Undercity, Act Three Capital City Ruins). Saves of 3.0.1.24342 and 3.0.0 differ from them only in the map checksum, as the save format (7003) is unchanged; Deathseeker projectiles of old saves are migrated as before. Not yet tested in game on 3.0.1.24371.',
+  sourcePolicy:'Validated campaign save format; every non-target checksum is replaced with the 3.0.1.24371 target. Saves of 3.0.1.24342 and 3.0.0 need only the new map checksum, as the save format (7003) is unchanged; Deathseeker projectiles of old saves are migrated as before. Source patch cannot be inferred from the serialization build.',
+  verification:'All 20 targets derived from the installed 3.0.1.24371 archives with the same routine as for 3.0.1.24342; the three saves 3.0.1.24371 wrote (Act One and Act Two Undercity, Act Three Capital City Ruins) match exactly. Player-tested on 3.0.1.24371: a 3.0.1.24342 Act Two Undercity save and 3.0.0 Act One and Act Two Undercity saves load after conversion. Other maps, travel and resaving remain unconfirmed.',
   maps:targets(['3.0.0','3.0.1'],'3.0.1.24371','upgrade-3.0.1.24371',['undeadre01','undeadre02','undeadre03a'])
 });
 // Downgrade: 3.0.1 saves, including ones written by the 3.0.1 game (build 7003), to restored 3.0.0.

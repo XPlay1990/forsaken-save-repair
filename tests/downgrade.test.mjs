@@ -29,8 +29,7 @@ test('downgrade reverses exact Deathseeker layouts on all maps, including earlie
       assert.deepEqual(result.data.subarray(48,64),source.subarray(48,64));
       // Upgrading again restores the current layout with the 3.0.1.24371 checksum, where known.
       const upgraded=repairSave(result.data),target=profiles.PROFILE.maps.find(row=>row.id===map.id);
-      if(target)assert.equal(hash(expanded(upgraded.data)),hash(expanded(nativeFixture({map,current:true,checksum:target.current,build:7000,deleted}))),'A reversed checkpoint must also support upgrading again');
-      else assert.deepEqual(upgraded.data,result.data,`${map.id}: no 3.0.1.24371 target, copied unchanged`);
+      assert.equal(hash(expanded(upgraded.data)),hash(expanded(nativeFixture({map,current:true,checksum:target.current,build:7000,deleted}))),'A reversed checkpoint must also support upgrading again');
     }
   }
 });

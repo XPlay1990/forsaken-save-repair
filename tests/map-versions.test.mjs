@@ -27,39 +27,34 @@ test('every map has a checksum for every full patch, matching donor and original
   assert.equal(patch('3.0.0').content,'3.0.0.24248');
 });
 
-// 3.0.1.24371 changed the maps; its checksums come only from saves that build wrote (donors).
-test('3.0.1.24371 checksums exist exactly for maps with a donor save',()=>{
+// 3.0.1.24371 changed 16 of the 20 maps; three targets match saves that build wrote.
+test('3.0.1.24371 checksums cover every map and match its donor saves',()=>{
   const donors24371={undeadre01:'c25954e3',undeadre02:'c97c51ea',undeadre03a:'66ed1037'};
-  assert.deepEqual(MAPS.filter(map=>map.checksums['3.0.1.24371']).map(map=>map.id).sort(),Object.keys(donors24371).sort());
-  for(const [id,checksum] of Object.entries(donors24371)){
-    assert.equal(mapChecksum(id,'3.0.1.24371'),checksum,id);assert.equal(mapById(id).evidence['3.0.1.24371'].donorSaveMatched,true,id);
-  }
+  for(const map of MAPS)assert.match(map.checksums['3.0.1.24371'],/^[0-9a-f]{8}$/,map.id);
+  for(const [id,checksum] of Object.entries(donors24371))assert.equal(mapChecksum(id,'3.0.1.24371'),checksum,id);
+  assert.deepEqual(MAPS.filter(map=>map.evidence['3.0.1.24371'].donorSaveMatched).map(map=>map.id).sort(),Object.keys(donors24371).sort());
+  assert.deepEqual(MAPS.filter(map=>map.checksums['3.0.1.24371']===map.checksums['3.0.1']).map(map=>map.id).sort(),['humanre02interlude','humanre04','undeadre03a','undeadre03interlude']);
 });
 
 test('both conversion directions are derived from the per-patch table',()=>{
   for(const map of MAPS){
     const up=mapProfile(map.mapPath,PROFILE),down=mapProfile(map.mapPath,DOWNGRADE_PROFILE);
-    if(map.checksums['3.0.1.24371']){
-      assert.equal(up.current,map.checksums['3.0.1.24371']);assert.equal(up.old,map.checksums['3.0.0']);
-      assert.deepEqual(up.known,[map.checksums['3.0.0'],map.checksums['3.0.1']]);
-    }else assert.equal(up,undefined,`${map.id} has no 3.0.1.24371 target`);
+    assert.equal(up.current,map.checksums['3.0.1.24371']);assert.equal(up.old,map.checksums['3.0.0']);
+    assert.deepEqual(up.known,[map.checksums['3.0.0'],map.checksums['3.0.1']]);
     assert.equal(down.current,map.checksums['3.0.0']);assert.equal(down.old,map.checksums['3.0.1']);
   }
   assert.equal(PROFILE.to,'3.0.1.24371');assert.equal(PROFILE.build,'24371');
   assert.equal(DOWNGRADE_PROFILE.enabled,true);assert.equal(PROFILE.enabled,true,'Upgrade enabled for patch 3.0.1');
 });
 
-test('maps with a 3.0.1.24371 target convert; the rest are copied unchanged with a reason',()=>{
-  assert.deepEqual(PROFILE.maps.map(map=>map.id),['undeadre01','undeadre02','undeadre03a']);
-  assert.deepEqual(PROFILE.maps.filter(map=>map.gameTested).map(map=>map.id),[],'Game tests on 3.0.1.24342 do not carry over');
+test('every installed map converts to 3.0.1.24371 with game-test provenance per target build',()=>{
+  assert.equal(PROFILE.maps.length,20);
+  assert.deepEqual(PROFILE.maps.filter(map=>map.gameTested).map(map=>map.id).sort(),['undeadre01','undeadre02'],'Game tests on 3.0.1.24342 do not carry over');
   assert.deepEqual(DOWNGRADE_PROFILE.maps.filter(map=>map.gameTested).map(map=>map.id).sort(),['undeadre01','undeadre01_02','undeadre01_03','undeadre01_05','undeadre01_06','undeadre02','undeadre02_06']);
   for(const map of MAPS){
     const supported=mapProfile(map.mapPath),source=fixture(map,'11223344').data,result=inspectSave(source);
     assert.equal(result.mapId,map.id);
-    if(!supported){
-      assert.equal(result.status,'unsupported',map.id);assert.match(result.reason,/No 3\.0\.1\.24371 map checksum is known/);
-      assert.deepEqual(repairSave(source).data,source,map.id);continue;
-    }
+    assert.ok(supported,map.id);
     assert.equal(result.status,'repair',map.id);assert.equal(result.mapName,supported.name);
     assert.equal(result.mapNameSource,'repair-profile');
     assert.equal(result.sourceRevisionKnown,false);assert.equal(result.mapGameTested,supported.gameTested);

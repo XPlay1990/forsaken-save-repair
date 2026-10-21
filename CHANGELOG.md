@@ -3,12 +3,18 @@
 ## Unreleased
 
 - Re-enable the Upgrade tab (3.0.0 → 3.0.1) now that patch 3.0.1 is available again.
-- Upgrade now targets the re-released 3.0.1.24371. Blizzard changed the campaign maps,
-  so upgraded saves (and saves of the first 3.0.1 release, 24342) no longer loaded. Both
-  3.0.0 and 3.0.1.24342 saves are accepted; only the map checksum changes. Targets come
-  from saves 3.0.1.24371 wrote: Act One Undercity, Act Two Undercity and Act Three
-  Capital City Ruins so far; saves of other maps are copied unchanged with a reason.
-  Outputs are named `<name>_upgraded_3.0.1.24371`.
+- Upgrade now targets the re-released 3.0.1.24371. Blizzard changed 16 of the 20
+  campaign maps, so upgraded saves (and saves of the first 3.0.1 release, 24342) no
+  longer loaded. Both 3.0.0 and 3.0.1.24342 saves are accepted; only the map checksum
+  changes. All 20 targets come from the installed archives and match the three saves
+  3.0.1.24371 wrote. Converted Act One and Act Two Undercity saves loaded in
+  3.0.1.24371. Outputs are named `<name>_upgraded_3.0.1.24371`.
+- Act Two saves that travelled under the restored 3.0.0 were refused with "This
+  save names multiple companion directories": its live zone folder (`ForsakenKingdom\`) was
+  taken for a companion folder. It is now ignored like `Blizzard\Zones`.
+- Upgrade tab: Act Two areas first entered under 3.0.0 keep the 3.0.0 travel script, which
+  differs from 3.0.1's; travelling into areas not visited under 3.0.0 loses hero items and
+  skill points (the mirror of the downgrade note).
 
 - Hero armor from Agility: 3.0.0 writes 0.14 per Agility point for newly created heroes
   and 0.30 once it recalculates; heroes saved under 3.0.1 keep 0.14, so Anya and Garek

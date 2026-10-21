@@ -31,6 +31,15 @@ test('UTF-8 saved file paths support another relative root and reject traversal,
   assert.deepEqual(Array.from(scanner.files),['Snapshots/Chäpter (3)/map.w3z']);
   assert.deepEqual(Array.from(scanner.folders),['Snapshots/Chäpter (3)']);
 });
+test('the live zone folder of the 3.0.0 travel script is not a companion folder',()=>{
+  // A travelled Act Two save stores its manual backup folder and live zone saves (ForsakenKingdom\).
+  const scanner=companionReferenceScanner();
+  for(const text of ['ForsakenKingdom\\UndeadRE02.w3z','ForsakenKingdom\\UndeadRE02_01.w3z','FKManualSaves\\actwo_started_15'])scanner.scan(record(text));
+  assert.deepEqual(Array.from(scanner.folders),['FKManualSaves/actwo_started_15']);
+  const path='ForsakenKingdom/actwo_started_15.w3z',files=[fake(path),fake('ForsakenKingdom/FKManualSaves/actwo_started_15/UndeadRE02.w3z'),fake('ForsakenKingdom/ForsakenKingdom/UndeadRE02.w3z')];
+  const bundle=checkpointBundle(indexFolder(files).entries,path,['FKManualSaves/actwo_started_15','ForsakenKingdom']);
+  assert.equal(bundle.companionFolder,'ForsakenKingdom/FKManualSaves/actwo_started_15');assert.equal(bundle.companionCount,1);
+});
 test('multiple stored checkpoint paths stop rather than pulling unrelated saves into a bundle',()=>{
   assert.throws(()=>checkpointBundle(indexFolder([fake('save.w3z')]).entries,'save.w3z',['Blizzard/One','FKManualSaves/Two']),/multiple companion directories/);
 });

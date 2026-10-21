@@ -60,7 +60,7 @@ test('checkpoint export repairs an additional Act One companion, renames the bun
     assert.deepEqual(Object.keys(output).sort(),[`${folder}/UndeadRE01_03.w3z`,`${folder}/UndeadRE01_05.w3z`,`${folder}/UndeadRE99.w3z`,'beforebaron_upgraded_3.0.1.24371.w3z','forsaken-repair-report.json'].sort());
     assert.deepEqual(output['beforebaron_upgraded_3.0.1.24371.w3z'],renameSave(repairSave(original).data,[['Blizzard/beforebaron',folder]]).data);
     assert.deepEqual(output[`${folder}/UndeadRE01_03.w3z`],companion);
-    assert.deepEqual(output[`${folder}/UndeadRE01_05.w3z`],arcane,'No 3.0.1.24371 target yet: copied unchanged');
+    assert.deepEqual(output[`${folder}/UndeadRE01_05.w3z`],repairSave(arcane).data);
     assert.deepEqual(output[`${folder}/UndeadRE99.w3z`],unknown);
     const report=JSON.parse(new TextDecoder().decode(output['forsaken-repair-report.json']));
     assert.equal(report.reportVersion,1);assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
@@ -74,11 +74,10 @@ test('checkpoint export repairs an additional Act One companion, renames the bun
     assert.equal(unsupported.mapPath,'Campaign\\ForsakenKingdom\\undeadre99.w3xd');assert.equal(unsupported.mapId,'undeadre99');
     assert.equal(unsupported.inputChecksum,'11223344');assert.equal(unsupported.outputChecksum,'11223344');assert.equal(unsupported.targetChecksum,null);
     assert.equal(unsupported.build,7003);assert.equal(unsupported.gameIdentifier,PROFILE.gameIdentifier);assert.equal(unsupported.gameVersion,PROFILE.gameVersion);
-    assert.deepEqual(report.unchangedUnsupported,[arcaneRow,unsupported]);
+    assert.deepEqual(report.unchangedUnsupported,[unsupported]);
     assert.deepEqual(report.missingCompanions,{folders:[],files:['Blizzard/beforebaron/UndeadRE01_02.w3z']});
     assert.equal(unsupported.mapNameSource,'map-filename');
-    assert.equal(arcaneRow.status,'unsupported');assert.equal(arcaneRow.outputChecksum,'11223344');assert.equal(arcaneRow.targetChecksum,null);
-    assert.match(arcaneRow.reason,/No 3\.0\.1\.24371 map checksum is known for this map yet/);assert.equal(arcaneRow.mapName,'Arcane Sanctuary');
+    assert.equal(arcaneRow.status,'repair');assert.equal(arcaneRow.outputChecksum,'fa4acd05');assert.equal(arcaneRow.sourceRevisionKnown,false);assert.equal(arcaneRow.mapGameTested,false);
     assert.deepEqual(Object.keys(unsupported).sort(),['file','outputFile','mapPath','mapId','mapName','mapNameSource','inputChecksum','outputChecksum','targetChecksum','sourceRevisionKnown','mapGameTested','build','gameIdentifier','gameVersion','status','reason','size','blocks','projectileRepairCount','outputBuild','nativeDowngrade','heroArmorRepairs','heroArmorChanges','assetFlag'].sort(),'Report must contain inspection metadata only');
     assert.equal(root.outputFile,'beforebaron_upgraded_3.0.1.24371.w3z');
     assert.deepEqual(output['beforebaron_upgraded_3.0.1.24371.w3z'].subarray(48,64),original.subarray(48,64));

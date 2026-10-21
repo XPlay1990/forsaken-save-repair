@@ -46,14 +46,15 @@ try{
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
   assert.match(await page.locator('.instruction-list').textContent(),/original saves are not replaced/);
   assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
-  // Tested maps per act come from the map table for the active direction and target build:
-  // nothing is game-tested on 3.0.1.24371 yet, and the convertible maps are listed.
+  // Tested maps per act come from the map table for the active direction and target build.
   const tested=await page.locator('.limitations-list').textContent();
-  for(const act of ['Act One','Act Two','Act Three','Prologue and interlude'])assert.match(tested,new RegExp(`${act}Untested\\.`));
-  assert.doesNotMatch(tested,/travel scripts/);
+  assert.match(tested,/Act OneTested: Undercity \/ Trade Quarter\./);
+  assert.match(tested,/Act ThreeUntested\./);
+  assert.match(tested,/Prologue and interludeUntested\./);
+  assert.match(tested,/Act TwoTested: Undercity\. Areas first entered under 3\.0\.0 keep their 3\.0\.0 travel scripts/);
   const upgradeScope=await page.locator('#target-limitations').textContent();
-  assert.match(upgradeScope,/targeting Warcraft III 3\.0\.1\.24371/);
-  assert.match(upgradeScope,/so far: Undercity \/ Trade Quarter, Undercity \(Act Two\), Capital City Ruins \(Act Three\)\./);
+  assert.match(upgradeScope,/targeting Warcraft III 3\.0\.1\.24371\./);
+  assert.doesNotMatch(upgradeScope,/supported so far/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Map coverage/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
   const todo=await readFile(path.join(root,'todo.md'),'utf8');assert.match(todo,/Arcane Sanctuary/);assert.match(todo,/Act Two/);assert.match(todo,/Act Three/);
@@ -159,7 +160,7 @@ try{
     }
     console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; renamed outputs, search and offline download passed.`);
   }
-  if(process.env.SCARLET_FIXTURE_DIR&&PROFILE.maps.some(map=>map.id==='undeadre02_06')){
+  if(process.env.SCARLET_FIXTURE_DIR){
     const folder=path.join(output,'scarlet-input','ForsakenKingdom'),stored='FKManualSaves/Act Two - The Scarlet Monastery (4)',main='renamed (4).w3z';
     const input=new Uint8Array(await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'Act Two - The Scarlet Monastery (4).w3z')));
     const expected=await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'scarlet_4_missile_layout_test.w3z'));
@@ -254,9 +255,8 @@ try{
     await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible'});
-    // Scarlet Monastery has no 3.0.1.24371 target yet: the page says so instead of converting.
-    assert.match(await page.locator('#error').textContent(),/No 3\.0\.1\.24371 map checksum is known for this map yet, so this save cannot be converted yet/);
-    assert.equal(await page.locator('#export').isEnabled(),false);
+    assert.equal(await page.locator('#error').isVisible(),false,await page.locator('#error').textContent());
+    assert.match(await page.locator('#export').textContent(),/Repair & download/);
     const blocked=path.join(output,'downgrade-blocked','ForsakenKingdom');await mkdir(blocked,{recursive:true});
     await writeFile(path.join(blocked,'Native.w3z'),fixture(map,map.old,7003).data);
     await page.locator('#clear').click();await page.locator('#tab-downgrade').click();

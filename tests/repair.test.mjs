@@ -33,7 +33,7 @@ test('current saves stay identical and non-current build-7003 saves repair for e
 });
 test('a previously unobserved source checksum can repair without claiming source-patch verification',()=>{
   const inspected=inspectSave(fixture(PROFILE.maps[0],'11223344').data);
-  assert.equal(inspected.status,'repair');assert.equal(inspected.sourceRevisionKnown,false);assert.equal(inspected.mapGameTested,false);
+  assert.equal(inspected.status,'repair');assert.equal(inspected.sourceRevisionKnown,false);assert.equal(inspected.mapGameTested,true);
 });
 test('unverified serialization builds are rejected',()=>assert.throws(()=>inspectSave(fixture(PROFILE.maps[0],PROFILE.maps[0].old,6999).data),/build/));
 test('identical map IDs in a different campaign never get a target',()=>{
