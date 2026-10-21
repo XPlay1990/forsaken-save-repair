@@ -10,6 +10,7 @@ const tabs=[...document.querySelectorAll('.mode-tab')];
 const available=tab=>{const profile=PROFILES.find(row=>row.id===tab.dataset.profile);return profile.enabled||preview===profile.direction;};
 let profileId=PROFILES.find(row=>row.enabled).id;
 const downgrade=()=>profileId==='forsaken-all-maps-to-300';
+const upgradeProfile=()=>PROFILES.find(row=>row.direction==='upgrade');
 function setTabsDisabled(value){for(const tab of tabs)tab.setAttribute('aria-disabled',String(value||!available(tab)));}
 function selectTab(tab){
   if(!tab||tab.getAttribute('aria-disabled')==='true')return false;
@@ -24,7 +25,9 @@ const TESTED_ROWS=[['Act One',['Act One']],['Act Two',['Act Two'],{downgrade:ACT
 function renderTested(direction){
   $('tested-maps').replaceChildren(...TESTED_ROWS.map(([label,sections,notes={}])=>{
     // Act One's Undercity map also holds the Trade Quarter (named as in profiles.mjs).
-    const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[direction])
+    // Game tests count per target build: the upgrade's tests refer to its current target.
+    const testedKey=direction==='upgrade'?`upgrade-${PROFILES.find(p=>p.direction==='upgrade').to}`:direction;
+    const names=MAPS.filter(map=>sections.includes(map.section)&&map.gameTested[testedKey])
       .map(map=>map.id==='undeadre01'?'Undercity / Trade Quarter':map.name.replace(/ \(Act \w+\)$/,''));
     const row=document.createElement('div'),term=document.createElement('dt'),detail=document.createElement('dd');
     term.textContent=label;detail.textContent=(names.length?`Tested: ${names.join(', ')}.`:'Untested.')+(notes[direction]?` ${notes[direction]}`:'');
@@ -33,9 +36,9 @@ function renderTested(direction){
 }
 function refreshTarget(){
   const down=downgrade();labels.repair=down?'Downgrade':'Repair';
-  $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':'Experimental: repairs older saves for Warcraft III 3.0.1. Keep your originals.';
+  $('target-note').textContent=down?'Experimental: converts 3.0.1 saves, including ones saved in the game, for the restored 3.0.0. Keep your originals.':`Experimental: converts 3.0.0 saves and saves from the first 3.0.1 release for Warcraft III ${upgradeProfile().to}. Keep your originals.`;
   renderTested(down?'downgrade':'upgrade');
-  $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':'For saves from before patch 3.0.1, targeting Warcraft III 3.0.1.24342.'} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
+  $('target-limitations').textContent=`${down?'Targets restored Warcraft III 3.0.0. Saves made after loading another save do not switch the game to Definitive Edition graphics, so with the Classic graphics setting they open with models missing (for example Undercity and the Cathedral). Set the graphics mode to Reforged before loading, or choose such saves here to repair them. Large saves can take a minute.':`For saves from 3.0.0 and the first 3.0.1 release (3.0.1.24342), targeting Warcraft III ${upgradeProfile().to}. Blizzard changed the maps in ${upgradeProfile().to}, so a map converts only once its new checksum is known from a save made in that version; so far: ${upgradeProfile().maps.map(map=>map.name).join(', ')}. Saves of other maps are copied unchanged and will not load yet.`} A successful test does not guarantee every checkpoint on that map will work. Other patches are unsupported.`;
 }
 function startWorker(){worker?.terminate();worker=new Worker(new URL('./worker.mjs',import.meta.url),{type:'module'});worker.onmessage=onMessage;worker.onerror=()=>fail('Processing stopped. Try a smaller checkpoint.');}
 function setBusy(value){busy=value;setTabsDisabled(value);$('folder-button').disabled=value;$('another-save').disabled=value;$('clear').hidden=value;$('progress-area').hidden=!value;$('cancel').hidden=!value;updateExport();}
@@ -49,12 +52,16 @@ function renderChoices(){const query=$('save-search').value.toLowerCase();$('che
 function showChoices(){resetResults();$('save-picker').hidden=false;$('another-save').hidden=true;$('step-label').textContent='Choose a save';$('step-number').textContent='02';$('clear').hidden=false;renderChoices();}
 function chooseCheckpoint(path){if(busy)return;resetResults();$('save-picker').hidden=true;$('another-save').hidden=true;$('step-label').textContent=checkpoints.find(save=>save.path===path)?.name||'Your save';$('step-number').textContent='03';setBusy(true);$('progress-message').textContent='Finding companion saves…';$('progress').value=0;worker.postMessage({type:'checkpoint',path});}
 function renderSummary(data){stats=data.summary;$('results').hidden=false;$('file-count').textContent=`${(data.bytes/1048576).toFixed(1)} MB`;$('checked-count').textContent=`(${data.rows.length} saves)`;$('stats').textContent=data.selection.companionCount?`1 checkpoint + ${data.selection.companionCount} companion save${data.selection.companionCount===1?'':'s'}`:'1 checkpoint';
-  $('unsupported-note').hidden=!stats.unsupported;$('unsupported-note').textContent=`${stats.unsupported} save(s) reference unrecognized maps and will be included unchanged.`;
+  $('unsupported-note').hidden=!stats.unsupported;$('unsupported-note').textContent=`${stats.unsupported} save(s) cannot be converted for this target and will be included unchanged; see each file's reason.`;
   needsAck=data.selection.missingFolders.length>0||data.selection.missingFiles.length>0;
   $('missing-note').hidden=!needsAck;$('missing-ack-wrap').hidden=!needsAck;$('missing-note').textContent='Referenced companion files were not found. Map travel may fail.';
   setBusy(false);$('another-save').hidden=!checkpoints.length;
   if(stats.blocked)fail('This checkpoint cannot be converted. See file details.');
-  else if(!stats.checkpointSupported||!(stats.repair+stats.current))fail('This save is not supported yet. Choose another checkpoint.');
+  else if(!stats.checkpointSupported||!(stats.repair+stats.current)){
+    // Name a known map's missing target instead of a generic message.
+    const main=data.rows.find(row=>row.path===data.selection.path),missing=main?.reason?.match(/^No .* is known for this map yet/)?.[0];
+    fail(missing?`${missing}, so this save cannot be converted yet. Choose another checkpoint.`:'This save is not supported yet. Choose another checkpoint.');
+  }
   $('export').textContent=stats.repair?(downgrade()?'Downgrade & download ↓':'Repair & download ↓'):'Download checked save ↓';updateExport();
 }
 function onMessage({data}){

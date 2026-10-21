@@ -61,10 +61,10 @@ function chain(raw,start){
   return {records,end:pos};
 }
 
-export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize,direction='upgrade'}){
+export function projectilePlan(raw,{mapId,build,targetChecksum,payloadSize,direction='upgrade',targetVersion=direction==='downgrade'?'3.0.0':'3.0.1'}){
   const map=mapById(mapId);
   const downgrade=direction==='downgrade';
-  const expected=map?.checksums[downgrade?'3.0.0':'3.0.1'];
+  const expected=map?.checksums[targetVersion];
   if(!map||expected!==targetChecksum||![7000,7003].includes(build))return null;
   const table=allocationTable(raw,payloadSize);
   if(!table)return null;

@@ -10,6 +10,10 @@ export const PATCHES = Object.freeze([
     source:'Restored rollback installation; nine targets match original pre-3.0.1 saves.'},
   {version:'3.0.1', executable:'3.0.1.24342', content:null, saveBuild:7003,
     source:'Installed 3.0.1 archives; seven targets match current-save donors.'},
+  // Re-released 3.0.1 with changed maps. Checksums come only from saves the game wrote on
+  // each map (donors); maps without a donor have no entry and are not converted to it.
+  {version:'3.0.1.24371', executable:'3.0.1.24371', content:null, saveBuild:7003,
+    source:'Saves written by 3.0.1.24371 on each listed map.'},
 ].map(Object.freeze));
 export const MAPS = Object.freeze([
   {
@@ -158,13 +162,17 @@ export const MAPS = Object.freeze([
     ],
     "checksums": {
       "3.0.0": "d14c260a",
-      "3.0.1": "3c2f7a2e"
+      "3.0.1": "3c2f7a2e",
+      "3.0.1.24371": "c25954e3"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": true
       }
     },
@@ -314,13 +322,17 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre02_undercity.png",
     "checksums": {
       "3.0.0": "35f0eca7",
-      "3.0.1": "e18988c1"
+      "3.0.1": "e18988c1",
+      "3.0.1.24371": "c97c51ea"
     },
     "evidence": {
       "3.0.0": {
         "originalSaveMatched": true
       },
       "3.0.1": {
+        "donorSaveMatched": true
+      },
+      "3.0.1.24371": {
         "donorSaveMatched": true
       }
     },
@@ -470,7 +482,8 @@ export const MAPS = Object.freeze([
     "nameSourceFile": "war3.w3mod:webui\\loadingscreen\\campaign\\rebirth\\02_undead\\undeadre03a_capitalruins.png",
     "checksums": {
       "3.0.0": "c9bea7aa",
-      "3.0.1": "66ed1037"
+      "3.0.1": "66ed1037",
+      "3.0.1.24371": "66ed1037"
     },
     "evidence": {
       "3.0.0": {
@@ -478,6 +491,9 @@ export const MAPS = Object.freeze([
       },
       "3.0.1": {
         "donorSaveMatched": false
+      },
+      "3.0.1.24371": {
+        "donorSaveMatched": true
       }
     },
     "gameTested": {

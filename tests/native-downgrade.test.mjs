@@ -36,7 +36,7 @@ test('projectiles of any missile model drop the 3.0.1 field and the 3.0.1-only b
 });
 
 test('a downgraded save can be upgraded again by the existing 3.0.1 repair',()=>{
-  const map=profile.maps.find(row=>row.id==='undeadre02_06');
+  const map=profile.maps.find(row=>row.id==='undeadre02');
   const downgraded=repairSave(native301Fixture({map}),{profile}).data;
   const upgraded=repairSave(downgraded,{profile:PROFILE});
   assert.equal(upgraded.inspection.status,'repair');

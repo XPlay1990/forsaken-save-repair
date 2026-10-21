@@ -29,8 +29,9 @@ test('unknown cached armor rules are preserved, as are upgrades',()=>{
   const custom=[{agility:50,coefficient:.42},{agility:0,coefficient:.14},{agility:37.5,primary:1},{agility:50,speed:.8}];
   const source=native301Fixture({legacy:true,heroes:custom});
   assert.deepEqual(repairSave(source,{profile}).data,source);
-  const upgrade=repairSave(native301Fixture({heroes}),{profile:PROFILE});
-  assert.equal(upgrade.inspection.status,'current');
+  // Upgrading a 3.0.1.24342 save only changes its map checksum; hero armor stays as saved.
+  const upgrade=repairSave(native301Fixture({map:profile.maps.find(row=>row.id==='undeadre02'),heroes}),{profile:PROFILE});
+  assert.equal(upgrade.inspection.status,'repair');assert.equal(upgrade.inspection.heroArmorRepairs,0);
 });
 
 test('unverified hero ownership skips that hero without blocking the save',()=>{

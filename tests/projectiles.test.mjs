@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import {PROFILE} from '../dist/profiles.mjs';
 import {inspectSave,repairSave} from '../dist/repair.mjs';
 import {nativeFixture,expanded} from './native-fixture.mjs';
-const map=PROFILE.maps.find(m=>m.id==='undeadre02_06');
+// The fixtures' default map (Act Two Undercity has a target in the current upgrade build).
+const map=PROFILE.maps.find(m=>m.id==='undeadre02');
 
 test('MUdb migration matches independently assembled current layout across a block boundary',()=>{
   for(const deleted of [false,true]){
@@ -26,7 +27,7 @@ test('current native-layout saves remain byte-identical',()=>{
 });
 test('unknown MUdb field layouts stop conversion',()=>{
   assert.throws(()=>repairSave(nativeFixture({badField:true})),/unrecognized MUdb state layout/);
-  assert.throws(()=>repairSave(nativeFixture({map:PROFILE.maps.find(m=>m.id==='undeadre03b'),badField:true})),/unrecognized MUdb state layout/);
+  assert.throws(()=>repairSave(nativeFixture({map:PROFILE.maps.find(m=>m.id==='undeadre03a'),badField:true})),/unrecognized MUdb state layout/);
   assert.throws(()=>repairSave(nativeFixture({ambiguous:true})),/ambiguous native allocation tables/);
 });
 

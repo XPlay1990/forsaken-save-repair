@@ -63,7 +63,8 @@ test('changing target resets worker analysis and selects the new checksum profil
   const messages=[];globalThis.self={postMessage:message=>messages.push(message)};
   try{
     await import('../dist/worker.mjs?change-target');
-    const map=PROFILE.maps.find(row=>row.id==='undeadre02_06'),file=make('ForsakenKingdom/Slot.w3z',fixture(map,map.current).data);
+    // A 3.0.1.24342 save: both directions recognize it (downgrade source, upgrade source).
+    const map=PROFILE.maps.find(row=>row.id==='undeadre02'),file=make('ForsakenKingdom/Slot.w3z',fixture(map,map.checksums['3.0.1']).data);
     for(const profile of [DOWNGRADE_PROFILE,PROFILE,DOWNGRADE_PROFILE]){
       await self.onmessage({data:{type:'listFolder',profileId:profile.id,files:[file]}});
       await self.onmessage({data:{type:'report'}});assert.equal(messages.at(-1).type,'error','Stale results must be cleared');

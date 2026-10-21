@@ -7,11 +7,10 @@ there are no save uploads, accounts, telemetry or remote APIs.
 
 The site has two tabs, both **experimental**:
 
-- **Downgrade** (default): saves from patch 3.0.1 → the restored Warcraft III 3.0.0
-  that Blizzard rolled back to.
-- **Upgrade**: saves from before 3.0.1 → 3.0.1.24342. Disabled while Blizzard ships
-  3.0.0; it is enabled again if the 3.0.1 maps return, and can be previewed locally
-  with `?preview=upgrade`.
+- **Upgrade** (default): saves from 3.0.0 and from the first 3.0.1 release
+  (3.0.1.24342) → the re-released Warcraft III 3.0.1.24371.
+- **Downgrade**: saves from patch 3.0.1.24342 → the restored Warcraft III 3.0.0
+  that Blizzard had rolled back to.
 
 ## Downgrade to restored 3.0.0
 
@@ -91,10 +90,17 @@ Reversing Neo's repaired Scarlet Monastery `(4)` produced the byte-identical
 original, which loaded. Other maps, later transitions and a complete campaign
 playthrough remain unconfirmed.
 
-## Upgrade to 3.0.1 (disabled)
+## Upgrade to 3.0.1.24371
 
-This direction targets Warcraft III 3.0.1.24342. All 20 installed
-campaign/prologue maps have authenticated, archive-derived checksum targets.
+Blizzard re-released patch 3.0.1 as build 3.0.1.24371 with changed campaign maps, so
+saves of the first 3.0.1 release (24342) no longer load either. The save format is
+unchanged (build 7003), so 3.0.0 and 3.0.1.24342 saves need only the new map
+checksum. Each 3.0.1.24371 target comes from a save that build wrote on that map
+(`src/map-versions.mjs`); so far Act One Undercity / Trade Quarter (`c25954e3`),
+Act Two Undercity (`c97c51ea`) and Act Three Capital City Ruins (`66ed1037`,
+unchanged from 24342). Saves of other maps are copied unchanged with a reason until
+a donor save provides their checksum; a main save on such a map cannot be exported.
+
 Identity repair updates both map-checksum fields and the container CRCs while
 preserving the save build. Unknown maps are copied unchanged; an unknown main map
 or invalid container cannot be exported as a repaired checkpoint. The
@@ -131,7 +137,7 @@ selection. Companion contents cannot expand the selection into other checkpoints
 working `Zones` folders are excluded. Without a stored path, the tool falls back
 to the same-name `Blizzard` folder, including older `_repaired` filenames.
 
-Outputs are named `<name>_downgraded_3.0.0` or `<name>_upgraded_3.0.1`, and the
+Outputs are named `<name>_downgraded_3.0.0` or `<name>_upgraded_3.0.1.24371`, and the
 companion folder (`Blizzard\<name>` or `FKManualSaves\<name>`) is renamed to match,
 so extracting the ZIP into the campaign folder never replaces the original
 checkpoint. The campaign script stores that folder as Lua strings in the main

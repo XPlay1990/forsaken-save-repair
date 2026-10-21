@@ -135,10 +135,10 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
     mapName:supported?.name||unsupportedMapName(info.map)||info.map.split(/[\\/]/).at(-1),
     mapNameSource:supported?'repair-profile':mapByPath(info.map)?.nameSource||'map-filename',
     checksum:info.checksum,targetChecksum:supported?.current||mapByPath(info.map)?.checksums[profile.to],
-    sourceRevisionKnown:supported?info.checksum===supported.old||info.checksum===supported.current:null,
+    sourceRevisionKnown:supported?supported.known.includes(info.checksum)||info.checksum===supported.current:null,
     mapGameTested:supported?.gameTested??null,build,blocks:count,
     gameIdentifier:u32(data,48),gameVersion:u32(data,52)};
-  let status='unsupported';let reason='This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null,armorConversion=null,flagOnly=false;
+  let status='unsupported';let reason=mapByPath(info.map)?`No ${profile.to} map checksum is known for this map yet; this save will be copied unchanged.`:'This map is not supported yet; this save will be copied unchanged.';let nativePlan=null,nativePayload=null,nativeConversion=null,armorConversion=null,flagOnly=false;
   try{
     if(supported){
       check(u32(data,48)===profile.gameIdentifier&&u32(data,52)===profile.gameVersion,'This map uses an unverified save serialization format.');
@@ -162,7 +162,7 @@ export function inspectSave(input,{profile=PROFILE,onBlock=()=>{},onExpandedBloc
         for(let index=1,offset=firstEnd;index<count;index++){
           const size=u32(data,offset);nativePayload.set(inflateBlock(data.subarray(offset+12,offset+12+size),BLOCK_SIZE),index*BLOCK_SIZE);offset+=12+size;
         }
-        nativePlan=projectilePlan(nativePayload,{...details,payloadSize,direction:profile.direction});
+        nativePlan=projectilePlan(nativePayload,{...details,payloadSize,direction:profile.direction,targetVersion:profile.to});
         if(!nativePlan)nativePayload=null;
       }
       if(nativeConversion){}

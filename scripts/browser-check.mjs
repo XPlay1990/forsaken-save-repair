@@ -1,6 +1,6 @@
 /** Local-only full browser check. Private save fixtures are never part of dist. */
 import {chromium} from 'playwright';
-import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {readFile,mkdir,writeFile,rm} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import path from 'node:path';
@@ -22,18 +22,16 @@ page.on('console',message=>{if(message.type()==='error')errors.push(message.text
 try{
   const site=process.env.PREVIEW_URL||'http://127.0.0.1:4173/';
   await page.goto(site);
-  // Downgrade is the default tab; upgrade stays disabled until the 3.0.1 maps return.
-  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true');
+  // Upgrade (to the re-released 3.0.1) is the default tab; downgrade stays available.
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'true');
   assert.match(await page.locator('#tab-downgrade').textContent(),/Experimental/);
   assert.match(await page.locator('#tab-upgrade').textContent(),/Experimental/);
-  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-disabled'),'true');
-  await page.locator('#tab-upgrade').click({force:true});
-  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'false');
-  await page.goto(site+'#upgrade');
-  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true','A disabled tab URL falls back to downgrade');
-  // The upgrade flows below run through the local preview switch.
-  await page.goto(site+'?preview=upgrade#upgrade');
+  assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-disabled'),'false');
+  await page.goto(site+'?tab=d#downgrade');
+  assert.equal(await page.locator('#tab-downgrade').getAttribute('aria-selected'),'true');
+  await page.goto(site+'?tab=u#upgrade');
   assert.equal(await page.locator('#tab-upgrade').getAttribute('aria-selected'),'true');
+  assert.match(await page.locator('#target-note').textContent(),/3\.0\.1\.24371/);
   assert.doesNotMatch(await page.locator('body').textContent(),/\ufffd/,'Visible text contains invalid UTF-8 replacement characters');
   assert.match(await page.locator('.identity').textContent(),/WARCRAFT III/);
   assert.match(await page.locator('footer').textContent(),/_xplay/);
@@ -48,13 +46,14 @@ try{
   assert.doesNotMatch(await page.locator('.instruction-list').textContent(),/_repaired/);
   assert.match(await page.locator('.instruction-list').textContent(),/original saves are not replaced/);
   assert.match(await page.locator('.instruction-list').textContent(),/_downgraded_3.0.0/);
-  // Tested maps per act come from the map table for the active direction (upgrade preview here).
+  // Tested maps per act come from the map table for the active direction and target build:
+  // nothing is game-tested on 3.0.1.24371 yet, and the convertible maps are listed.
   const tested=await page.locator('.limitations-list').textContent();
-  assert.match(tested,/Act OneTested: Undercity \/ Trade Quarter, Capital City Ruins, Tirisfal Glades\./);
-  assert.match(tested,/Act TwoTested: .*Dawn's Watch/);
+  for(const act of ['Act One','Act Two','Act Three','Prologue and interlude'])assert.match(tested,new RegExp(`${act}Untested\\.`));
   assert.doesNotMatch(tested,/travel scripts/);
-  assert.match(tested,/Act ThreeUntested\./);
-  assert.match(tested,/Prologue and interludeUntested\./);
+  const upgradeScope=await page.locator('#target-limitations').textContent();
+  assert.match(upgradeScope,/targeting Warcraft III 3\.0\.1\.24371/);
+  assert.match(upgradeScope,/so far: Undercity \/ Trade Quarter, Undercity \(Act Two\), Capital City Ruins \(Act Three\)\./);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Map coverage/);
   assert.doesNotMatch(await page.locator('.limitations-list').textContent(),/Not supported yet/);
   const todo=await readFile(path.join(root,'todo.md'),'utf8');assert.match(todo,/Arcane Sanctuary/);assert.match(todo,/Act Two/);assert.match(todo,/Act Three/);
@@ -93,12 +92,12 @@ try{
     assert.ok(inspected.saves.every(row=>row.mapPath&&row.inputChecksum&&row.build&&row.outputChecksum===null));
     const checkpointDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const downloaded=await checkpointDownload;const destination=path.join(output,'checkpoint-download.zip');await downloaded.saveAs(destination);
-    assert.equal(downloaded.suggestedFilename(),'after_baron_upgraded_3.0.1-bundle.zip');
+    assert.equal(downloaded.suggestedFilename(),'after_baron_upgraded_3.0.1.24371-bundle.zip');
     const converted=unzipSync(new Uint8Array(await readFile(destination)));
     const report=JSON.parse(new TextDecoder().decode(converted['forsaken-repair-report.json']));
     assert.equal(report.checkpoint.path,selectedPath);assert.equal(report.checkpoint.companionCount,3);
     const mainOutput=report.saves.find(item=>item.file===selectedPath).outputFile;
-    assert.equal(mainOutput,'after_baron_upgraded_3.0.1.w3z');assert.equal(report.filenamesPreserved,false);
+    assert.equal(mainOutput,'after_baron_upgraded_3.0.1.24371.w3z');assert.equal(report.filenamesPreserved,false);
     assert.equal(inspectSave(converted[mainOutput]).status,'current');
     assert.equal(report.repairMode,'identity-only');assert.equal(report.folderPathsPreserved,false);
     assert.equal(report.reportKind,'repaired-bundle');assert.equal(report.saves.length,4);
@@ -107,9 +106,9 @@ try{
     assert.equal(mainOutput.includes('/'),false,'Checkpoint ZIP should contain campaign contents directly');
     const snapshots=Object.keys(converted).filter(name=>name.endsWith('.w3z')&&name!==mainOutput);
     assert.equal(snapshots.length,report.checkpoint.companionCount);
-    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron_upgraded_3.0.1/'),'Companion folder must be renamed with the save');
+    for(const name of snapshots)assert.ok(name.startsWith('Blizzard/after_baron_upgraded_3.0.1.24371/'),'Companion folder must be renamed with the save');
     const sourceOf=name=>report.renamed.find(row=>row.to===name)?.from||name;
-    const folders=[['Blizzard/after_baron','Blizzard/after_baron_upgraded_3.0.1'],['FKManualSaves/after_baron','FKManualSaves/after_baron_upgraded_3.0.1']];
+    const folders=[['Blizzard/after_baron','Blizzard/after_baron_upgraded_3.0.1.24371'],['FKManualSaves/after_baron','FKManualSaves/after_baron_upgraded_3.0.1.24371']];
     for(const [name,data] of Object.entries(converted)){if(!name.endsWith('.w3z'))continue;const original=new Uint8Array(await readFile(path.join(campaign,sourceOf(name))));assert.deepEqual(data,renameSave(repairSave(original).data,folders).data,'Export changed bytes outside the repair and folder rename');}
     assert.equal(Object.keys(converted).some(name=>/\/Zones\/|Campaigns\.w3v|ForsakenKingdom\.w3p/i.test(name)),false);
     await context.setOffline(false);await page.locator('#another-save').click();await page.locator('#save-picker').waitFor({state:'visible'});
@@ -126,10 +125,10 @@ try{
       const beforeZip=unzipSync(new Uint8Array(await readFile(path.join(output,'beforebaron-checksum-only.zip'))));
       const beforeReport=JSON.parse(new TextDecoder().decode(beforeZip['forsaken-repair-report.json']));
       const beforeOutput=beforeReport.saves.find(item=>item.file.endsWith('/beforebaron.w3z')).outputFile;
-      assert.equal(beforeOutput,'beforebaron_upgraded_3.0.1.w3z');
+      assert.equal(beforeOutput,'beforebaron_upgraded_3.0.1.24371.w3z');
       assert.equal(beforeReport.repairMode,'identity-only');
-      const beforeFolders=[['Blizzard/beforebaron','Blizzard/beforebaron_upgraded_3.0.1'],['FKManualSaves/beforebaron','FKManualSaves/beforebaron_upgraded_3.0.1']];
-      for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron_upgraded_3.0.1/'));const original=new Uint8Array(await readFile(path.join(campaign,beforeReport.renamed.find(row=>row.to===name).from)));assert.deepEqual(data,renameSave(repairSave(original).data,beforeFolders).data);}
+      const beforeFolders=[['Blizzard/beforebaron','Blizzard/beforebaron_upgraded_3.0.1.24371'],['FKManualSaves/beforebaron','FKManualSaves/beforebaron_upgraded_3.0.1.24371']];
+      for(const [name,data] of Object.entries(beforeZip)){if(!name.endsWith('.w3z'))continue;assert.ok(name===beforeOutput||name.startsWith('Blizzard/beforebaron_upgraded_3.0.1.24371/'));const original=new Uint8Array(await readFile(path.join(campaign,beforeReport.renamed.find(row=>row.to===name).from)));assert.deepEqual(data,renameSave(repairSave(original).data,beforeFolders).data);}
       await page.locator('#another-save').click();
     }
     await page.locator('#save-search').fill('Act Two - Undercity');
@@ -145,7 +144,7 @@ try{
       const actual=inspectSave(new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z'))));
       assert.equal(report.reportKind,'analysis');assert.ok(['repair','current'].includes(observed.status));
       assert.equal(observed.mapPath,actual.map);assert.equal(observed.inputChecksum,actual.checksum);assert.equal(observed.build,actual.build);
-      assert.equal(observed.outputChecksum,null);assert.equal(observed.targetChecksum,'e18988c1');assert.equal(observed.mapGameTested,true);
+      assert.equal(observed.outputChecksum,null);assert.equal(observed.targetChecksum,'c97c51ea');assert.equal(observed.mapGameTested,false);
       if(await page.locator('#missing-ack').isVisible())await page.locator('#missing-ack').check();
       assert.equal(await page.locator('#export').isEnabled(),true);
       const bundleDownload=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
@@ -154,13 +153,13 @@ try{
       const exportedReport=JSON.parse(new TextDecoder().decode(zipped['forsaken-repair-report.json']));
       const outputRow=exportedReport.saves.find(row=>row.file===exportedReport.checkpoint.path);
       const original=new Uint8Array(await readFile(path.join(campaign,'Act Two - Undercity.w3z')));
-      assert.equal(outputRow.outputFile,'Act Two - Undercity_upgraded_3.0.1.w3z');
-      assert.equal(inspectSave(zipped[outputRow.outputFile]).checksum,'e18988c1');
-      assert.equal(outputRow.outputChecksum,'e18988c1');
+      assert.equal(outputRow.outputFile,'Act Two - Undercity_upgraded_3.0.1.24371.w3z');
+      assert.equal(inspectSave(zipped[outputRow.outputFile]).checksum,'c97c51ea');
+      assert.equal(outputRow.outputChecksum,'c97c51ea');
     }
     console.log(`Checkpoint flow passed for a ${(metadata.bytes/1024**3).toFixed(2)} GB collection: selected save and its ${snapshots.length} same-folder companions only; after_baron, beforebaron and Act Two exports checked; renamed outputs, search and offline download passed.`);
   }
-  if(process.env.SCARLET_FIXTURE_DIR){
+  if(process.env.SCARLET_FIXTURE_DIR&&PROFILE.maps.some(map=>map.id==='undeadre02_06')){
     const folder=path.join(output,'scarlet-input','ForsakenKingdom'),stored='FKManualSaves/Act Two - The Scarlet Monastery (4)',main='renamed (4).w3z';
     const input=new Uint8Array(await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'Act Two - The Scarlet Monastery (4).w3z')));
     const expected=await readFile(path.join(process.env.SCARLET_FIXTURE_DIR,'scarlet_4_missile_layout_test.w3z'));
@@ -179,7 +178,7 @@ try{
     const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const file=await download,zipPath=path.join(output,'scarlet-site-export.zip');await file.saveAs(zipPath);
     const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
-    const out='renamed (4)_upgraded_3.0.1.w3z',outFolder='FKManualSaves/renamed (4)_upgraded_3.0.1';
+    const out='renamed (4)_upgraded_3.0.1.24371.w3z',outFolder='FKManualSaves/renamed (4)_upgraded_3.0.1.24371';
     assert.deepEqual(Object.keys(zip).sort(),[out,outFolder+'/UndeadRE02.w3z','forsaken-repair-report.json'].sort());
     const hash=data=>createHash('sha256').update(data).digest('hex');
     assert.equal(hash(zip[out]),hash(renameSave(new Uint8Array(expected),[[stored,outFolder]]).data));
@@ -190,8 +189,9 @@ try{
     console.log('Real Scarlet (4) browser download exactly matches game-tested recovery; FKManualSaves selected over filename match; names/report/privacy checked.');
   }
   {
-    const folder=path.join(output,'cross-map-input','ForsakenKingdom'),stored='FKManualSaves/Anya checkpoint',main='Anya checkpoint.w3z',snapshot=stored+'/UndeadRE03b.w3z';
-    const mainMap=PROFILE.maps.find(map=>map.id==='undeadre01'),companionMap=PROFILE.maps.find(map=>map.id==='undeadre03b');
+    const folder=path.join(output,'cross-map-input','ForsakenKingdom'),stored='FKManualSaves/Anya checkpoint',main='Anya checkpoint.w3z',snapshot=stored+'/UndeadRE03a.w3z';
+    const mainMap=PROFILE.maps.find(map=>map.id==='undeadre01'),companionMap=PROFILE.maps.find(map=>map.id==='undeadre03a');
+    await rm(path.dirname(folder),{recursive:true,force:true});
     await mkdir(path.join(folder,stored),{recursive:true});
     await writeFile(path.join(folder,main),nativeFixture({map:mainMap,checksum:'11223344',decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')}));
     await writeFile(path.join(folder,snapshot),nativeFixture({map:companionMap,checksum:'11223344'}));
@@ -202,7 +202,7 @@ try{
     const download=page.waitForEvent('download',{timeout:120000});await page.locator('#export').click();
     const file=await download,zipPath=path.join(output,'cross-map-site-export.zip');await file.saveAs(zipPath);
     const zip=unzipSync(new Uint8Array(await readFile(zipPath)));
-    const out='Anya checkpoint_upgraded_3.0.1.w3z',outFolder='FKManualSaves/Anya checkpoint_upgraded_3.0.1',outSnapshot=outFolder+'/UndeadRE03b.w3z';
+    const out='Anya checkpoint_upgraded_3.0.1.24371.w3z',outFolder='FKManualSaves/Anya checkpoint_upgraded_3.0.1.24371',outSnapshot=outFolder+'/UndeadRE03a.w3z';
     assert.deepEqual(Object.keys(zip).sort(),[out,outSnapshot,'forsaken-repair-report.json'].sort());
     const hash=bytes=>createHash('sha256').update(bytes).digest('hex');
     const expectedMain=nativeFixture({map:mainMap,current:true,checksum:mainMap.current,decoys:true,allocationOffset:1048576-32,companionPath:stored.replaceAll('/','\\')});
@@ -254,8 +254,9 @@ try{
     await page.locator('#save-picker').waitFor({state:'visible'});
     await page.locator('.checkpoint-choice').filter({hasText:'Renamed (4)'}).click();
     await page.locator('#results').waitFor({state:'visible'});
-    assert.equal(await page.locator('#error').isVisible(),false);
-    assert.match(await page.locator('#export').textContent(),/Download checked save/);
+    // Scarlet Monastery has no 3.0.1.24371 target yet: the page says so instead of converting.
+    assert.match(await page.locator('#error').textContent(),/No 3\.0\.1\.24371 map checksum is known for this map yet, so this save cannot be converted yet/);
+    assert.equal(await page.locator('#export').isEnabled(),false);
     const blocked=path.join(output,'downgrade-blocked','ForsakenKingdom');await mkdir(blocked,{recursive:true});
     await writeFile(path.join(blocked,'Native.w3z'),fixture(map,map.old,7003).data);
     await page.locator('#clear').click();await page.locator('#tab-downgrade').click();

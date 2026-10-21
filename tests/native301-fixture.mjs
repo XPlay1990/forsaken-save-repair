@@ -6,7 +6,7 @@ import {PROFILE,DOWNGRADE_PROFILE} from '../dist/profiles.mjs';
 import {inspectSave,blockCRC,headerCRC} from '../dist/repair.mjs';
 import {API_ALIASES,API_REMOVED} from '../dist/native-downgrade.mjs';
 const encoder=new TextEncoder(),BLOCK=1048576;
-const scarlet=PROFILE.maps.find(map=>map.id==='undeadre02_06');
+const scarlet=DOWNGRADE_PROFILE.maps.find(map=>map.id==='undeadre02_06');
 class Writer{
   constructor(){this.parts=[];this.length=0;}
   bytes(value){this.parts.push(value);this.length+=value.length;return this;}

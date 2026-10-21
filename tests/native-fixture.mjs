@@ -2,7 +2,8 @@ import {deflateSync,constants} from 'node:zlib';
 import {fixture} from './save-fixture.mjs';
 import {PROFILE} from '../dist/profiles.mjs';
 import {inspectSave,repairSave,inflateBlock,headerCRC,blockCRC} from '../dist/repair.mjs';
-const encoder=new TextEncoder(),scarlet=PROFILE.maps.find(m=>m.id==='undeadre02_06');
+// Upgrade fixtures use a map with a known target for the current upgrade build.
+const encoder=new TextEncoder(),scarlet=PROFILE.maps.find(m=>m.id==='undeadre02');
 const put=(bytes,pos,value)=>new DataView(bytes.buffer,bytes.byteOffset,bytes.byteLength).setUint32(pos,value,true);
 const join=arrays=>new Uint8Array(Buffer.concat(arrays));
 function chunk(body){const header=new Uint8Array(8);header.set(encoder.encode('espi'));put(header,4,body.length);return join([header,body]);}

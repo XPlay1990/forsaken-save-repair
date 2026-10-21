@@ -3,6 +3,12 @@
 ## Unreleased
 
 - Re-enable the Upgrade tab (3.0.0 → 3.0.1) now that patch 3.0.1 is available again.
+- Upgrade now targets the re-released 3.0.1.24371. Blizzard changed the campaign maps,
+  so upgraded saves (and saves of the first 3.0.1 release, 24342) no longer loaded. Both
+  3.0.0 and 3.0.1.24342 saves are accepted; only the map checksum changes. Targets come
+  from saves 3.0.1.24371 wrote: Act One Undercity, Act Two Undercity and Act Three
+  Capital City Ruins so far; saves of other maps are copied unchanged with a reason.
+  Outputs are named `<name>_upgraded_3.0.1.24371`.
 
 - Hero armor from Agility: 3.0.0 writes 0.14 per Agility point for newly created heroes
   and 0.30 once it recalculates; heroes saved under 3.0.1 keep 0.14, so Anya and Garek

@@ -33,7 +33,7 @@ test('current saves stay identical and non-current build-7003 saves repair for e
 });
 test('a previously unobserved source checksum can repair without claiming source-patch verification',()=>{
   const inspected=inspectSave(fixture(PROFILE.maps[0],'11223344').data);
-  assert.equal(inspected.status,'repair');assert.equal(inspected.sourceRevisionKnown,false);assert.equal(inspected.mapGameTested,true);
+  assert.equal(inspected.status,'repair');assert.equal(inspected.sourceRevisionKnown,false);assert.equal(inspected.mapGameTested,false);
 });
 test('unverified serialization builds are rejected',()=>assert.throws(()=>inspectSave(fixture(PROFILE.maps[0],PROFILE.maps[0].old,6999).data),/build/));
 test('identical map IDs in a different campaign never get a target',()=>{
@@ -43,7 +43,7 @@ test('identical map IDs in a different campaign never get a target',()=>{
 });
 test('recognized map IDs cannot bypass game identifier/version checks',()=>{
   for(const offset of [48,52]){
-    const data=fixture({id:'undeadre03b'},'11223344').data;
+    const data=fixture({id:'undeadre03a'},'11223344').data;
     const header=new DataView(data.buffer);header.setUint32(offset,0,true);header.setUint32(64,headerCRC(data.subarray(0,68)),true);
     assert.throws(()=>repairSave(data),/serialization format/);
   }
